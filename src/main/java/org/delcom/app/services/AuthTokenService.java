@@ -2,26 +2,26 @@ package org.delcom.app.services;
 
 import java.util.UUID;
 
-import org.delcom.app.entities.AuthToken;
-import org.delcom.app.repositories.AuthTokenRepository;
+import org.delcom.app.entities.AuthTokenTests;
+import org.delcom.app.repositories.AuthTokenRepositoryTests;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthTokenService {
-    private final AuthTokenRepository authTokenRepository;
+    private final AuthTokenRepositoryTests authTokenRepository;
 
-    public AuthTokenService(AuthTokenRepository authTokenRepository) {
+    public AuthTokenService(AuthTokenRepositoryTests authTokenRepository) {
         this.authTokenRepository = authTokenRepository;
     }
 
     @Transactional(readOnly = true)
-    public AuthToken findUserToken(UUID userId, String token) {
+    public AuthTokenTests findUserToken(UUID userId, String token) {
         return authTokenRepository.findUserToken(userId, token);
     }
 
     @Transactional
-    public AuthToken createAuthToken(AuthToken authToken) {
+    public AuthTokenTests createAuthToken(AuthTokenTests authToken) {
         return authTokenRepository.save(authToken);
     }
 

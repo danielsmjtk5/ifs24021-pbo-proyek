@@ -1,10 +1,23 @@
 package org.delcom.app.entities;
 
-import jakarta.persistence.*;
-import org.springframework.format.annotation.DateTimeFormat;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import org.springframework.format.annotation.DateTimeFormat;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "donations")
@@ -17,7 +30,12 @@ public class Donation {
     @Column(nullable = false)
     private String name;
 
-    private String location;
+    private String location; // Nama lokasi (Teks)
+
+    // --- BARU: KOORDINAT PETA ---
+    private Double latitude;
+    private Double longitude;
+    // ----------------------------
 
     private String category; // Makanan Berat, Snack, Minuman
 
@@ -56,7 +74,7 @@ public class Donation {
         AVAILABLE, BOOKED, EXPIRED
     }
 
-    // --- CONSTRUCTOR KOSONG (Wajib untuk JPA) ---
+    // --- CONSTRUCTOR KOSONG ---
     public Donation() {}
 
     // --- LIFECYCLE CALLBACKS ---
@@ -72,8 +90,7 @@ public class Donation {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // --- GETTERS AND SETTERS (MANUAL) ---
-    // Ini yang menyelesaikan error "cannot find symbol" di Controller
+    // --- GETTERS AND SETTERS ---
 
     public UUID getId() {
         return id;
@@ -97,6 +114,23 @@ public class Donation {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    // Getter Setter untuk Peta
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     public String getCategory() {

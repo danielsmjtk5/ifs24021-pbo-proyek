@@ -7,46 +7,38 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
-    <!-- 2. Font Google (Poppins - Modern & Clean) -->
+    <!-- 2. Font Google: PLUS JAKARTA SANS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- 3. CUSTOM CSS (RAHASIA UI BAGUS) -->
+    <!-- 3. CUSTOM CSS -->
     <style>
         :root {
-            --primary-color: #4361ee; /* Biru Modern */
-            --secondary-color: #3f37c9;
-            --bg-color: #f8f9fa;
-            --text-dark: #2b2d42;
+            --primary-color: #4361ee;
+            --primary-hover: #3a56d4;
+            --text-dark: #1e293b;
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            background-color: var(--bg-color);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(180deg, #f0f4f8 0%, #e1e8ed 100%);
+            min-height: 100vh;
             color: var(--text-dark);
         }
 
         /* Navbar Styling */
         .navbar {
-            background-color: #ffffff;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             padding: 1rem 0;
         }
         .navbar-brand {
-            font-weight: 700;
+            font-weight: 800;
             font-size: 1.5rem;
             color: var(--primary-color) !important;
             letter-spacing: -0.5px;
-        }
-
-        /* Hero Section */
-        .hero-section {
-            padding: 3rem 0 2rem 0;
-        }
-        .hero-title {
-            font-weight: 700;
-            color: var(--text-dark);
         }
 
         /* Search Bar Modern */
@@ -54,35 +46,43 @@
             background: white;
             padding: 8px;
             border-radius: 50px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            border: 1px solid #eee;
+            box-shadow: 0 10px 30px rgba(67, 97, 238, 0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.3s;
         }
+        .search-container:focus-within {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(67, 97, 238, 0.12);
+        }
+        
         .search-input {
             border: none;
             box-shadow: none !important;
-            font-size: 0.95rem;
-            padding-left: 15px;
+            font-size: 1rem;
+            padding-left: 10px; /* Adjusted padding */
+            font-weight: 500;
         }
         .search-btn {
             border-radius: 50px;
-            padding: 8px 25px;
-            font-weight: 600;
+            padding: 10px 30px;
+            font-weight: 700;
         }
 
-        /* Card Donasi (Paling Penting) */
+        /* Card Donasi */
         .donation-card {
             border: none;
-            border-radius: 16px;
+            border-radius: 20px;
             background: white;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
             height: 100%;
             overflow: hidden;
+            position: relative;
         }
         
         .donation-card:hover {
-            transform: translateY(-5px); /* Efek Melayang */
-            box-shadow: 0 10px 25px rgba(67, 97, 238, 0.15); /* Bayangan Biru Halus */
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(67, 97, 238, 0.15);
         }
 
         .card-img-wrapper {
@@ -99,25 +99,37 @@
         }
 
         .donation-card:hover .card-img-top {
-            transform: scale(1.05); /* Efek Zoom Gambar */
+            transform: scale(1.08);
+        }
+
+        /* --- LOGIC VISUAL BOOKED (Hitam Putih) --- */
+        .donation-card.is-booked {
+            filter: grayscale(100%);
+            opacity: 0.8;
+        }
+        .donation-card.is-booked:hover {
+            transform: none; 
+            filter: grayscale(0%);
+            opacity: 1;
         }
 
         .status-badge {
             position: absolute;
             top: 15px;
             right: 15px;
-            backdrop-filter: blur(5px);
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: white;
             color: #198754;
             font-weight: 700;
-            padding: 6px 12px;
+            padding: 6px 14px;
             border-radius: 30px;
             font-size: 0.75rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 2;
         }
         
         .status-badge.booked {
-            color: #6c757d;
+            background-color: #343a40;
+            color: white;
         }
 
         .card-body {
@@ -125,76 +137,89 @@
         }
 
         .badge-halal {
-            background-color: #d1e7dd;
-            color: #0f5132;
-            border: 1px solid #badbcc;
+            background-color: #ecfdf5;
+            color: #059669;
+            border: 1px solid #d1fae5;
         }
         
         .badge-non-halal {
-            background-color: #f8d7da;
-            color: #842029;
-            border: 1px solid #f5c2c7;
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fee2e2;
         }
 
         .info-text {
             font-size: 0.85rem;
-            color: #6c757d;
-            margin-bottom: 0.5rem;
+            color: #64748b;
+            margin-bottom: 0.6rem;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            font-weight: 500;
         }
 
+        /* Tombol Detail (Available) */
         .btn-detail {
-            border-radius: 10px;
-            background-color: #f0f4ff;
+            border-radius: 12px;
+            background-color: #eef2ff;
             color: var(--primary-color);
-            font-weight: 600;
+            font-weight: 700;
             border: none;
-            padding: 10px;
+            padding: 12px;
             transition: 0.2s;
         }
         .btn-detail:hover {
             background-color: var(--primary-color);
             color: white;
         }
-        
-        /* Tombol Buat Donasi */
-        .btn-create {
-            background: linear-gradient(45deg, #4361ee, #3f37c9);
-            border: none;
-            border-radius: 10px;
-            padding: 10px 20px;
+
+        /* Tombol Disabled (Booked) - Updated Style */
+        .btn-disabled-custom {
+            border-radius: 12px;
+            background-color: #e9ecef !important;
+            color: #6c757d !important;
             font-weight: 600;
-            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
-            transition: 0.3s;
+            border: 1px dashed #ced4da; /* Border putus-putus */
+            padding: 12px;
+            pointer-events: none; 
+            opacity: 0.8;
+        }
+        
+        .btn-create {
+            background: linear-gradient(135deg, #4361ee, #3a56d4);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 700;
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.2);
+            transition: all 0.3s;
         }
         .btn-create:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(67, 97, 238, 0.3);
         }
     </style>
 </head>
 <body>
 
-    <!-- NAVBAR PREMIUM -->
+    <!-- NAVBAR -->
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-basket2-fill me-2"></i>FoodPlate
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-basket2-fill me-2 fs-3"></i> FoodPlate
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto gap-2">
+                <ul class="navbar-nav ms-auto gap-2 align-items-center">
                     <li class="nav-item">
-                        <a href="/dashboard" class="btn btn-outline-primary border-0 rounded-pill px-4">
+                        <a href="/dashboard" class="btn btn-link text-decoration-none text-secondary fw-semibold">
                             <i class="bi bi-bar-chart-fill me-1"></i> Statistik
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/auth/logout" class="btn btn-outline-danger border-0 rounded-pill px-4">
+                        <a href="/auth/logout" class="btn btn-link text-decoration-none text-danger fw-bold opacity-75 hover-opacity-100" style="font-size: 0.9rem;">
                             Logout
                         </a>
                     </li>
@@ -203,28 +228,37 @@
         </div>
     </nav>
 
-    <div class="container hero-section">
-        <!-- HEADER & TOMBOL -->
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-            <div>
-                <h2 class="hero-title display-6">Mau makan apa hari ini?</h2>
-                <p class="text-muted mb-0 fs-5">Temukan makanan gratis & berkah di sekitarmu.</p>
+    <div class="container py-5">
+        <!-- HEADER -->
+        <!-- FIXED: Menggunakan align-items-center agar tombol sejajar tengah dengan teks -->
+        <div class="d-flex justify-content-between align-items-center mb-5 flex-wrap gap-3">
+           <div class="text-start">
+                <h1 class="display-5 fw-extrabold text-dark mb-2" style="font-weight: 800; letter-spacing: -1px;">
+                    Rezeki Makanan Untukmu
+                </h1>
+                <p class="lead text-secondary mb-0 fw-medium">
+                    Temukan makanan gratis & berkah di sekitarmu.
+                </p>
             </div>
             <a href="/donations/add" class="btn btn-primary btn-create text-white">
-                <i class="bi bi-plus-lg me-1"></i> Buat Donasi Baru
+                <i class="bi bi-plus-circle-dotted me-2"></i> Buat Donasi Baru
             </a>
         </div>
 
         <!-- SEARCH BAR MODERN -->
-        <div class="row mb-5">
+        <div class="row justify-content-center mb-5">
             <div class="col-lg-12">
                 <form action="/" method="get">
                     <div class="search-container d-flex align-items-center">
-                        <i class="bi bi-search text-muted ms-3 fs-5"></i>
-                        <input type="text" name="search" class="form-control search-input" 
-                               placeholder="Cari nasi goreng, snack, atau minuman..." th:value="${search}">
+                        <!-- FIXED: Ditambah me-2 agar ada jarak dengan text -->
+                        <i class="bi bi-search text-muted ms-3 me-2 fs-5"></i>
                         
-                        <select name="halal" class="form-select border-0 bg-transparent w-auto d-none d-md-block" style="box-shadow: none;">
+                        <input type="text" name="search" class="form-control search-input" 
+                               placeholder="Cari nasi bungkus, roti, atau bahan mentah..." th:value="${search}">
+                        
+                        <div class="border-start mx-2 h-50 d-none d-md-block"></div>
+
+                        <select name="halal" class="form-select border-0 bg-transparent w-auto d-none d-md-block text-secondary fw-semibold" style="box-shadow: none; cursor: pointer;">
                             <option value="">Semua Jenis</option>
                             <option value="true">✅ Halal Only</option>
                             <option value="false">❌ Non-Halal</option>
@@ -237,72 +271,79 @@
         </div>
 
         <!-- CARD GRID -->
-        <div class="row row-cols-1 row-cols-md-3 g-4">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
             <!-- Loop Data -->
             <div class="col" th:each="item : ${donations}">
-                <div class="card donation-card h-100">
+                
+                <div class="card donation-card h-100" th:classappend="${item.status.name() == 'BOOKED'} ? 'is-booked'">
                     
-                    <!-- Gambar dengan Wrapper -->
                     <div class="card-img-wrapper">
-                        <img th:src="@{'/uploads/' + ${item.photoUrl}}" 
+                        <!-- Image Logic with Placeholder -->
+                        <img th:src="${item.photoUrl != null} ? '/uploads/' + ${item.photoUrl} : 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'"
                              class="card-img-top" 
-                             alt="Foto Makanan"
-                             onerror="this.src='https://via.placeholder.com/400x220?text=No+Image'">
+                             alt="Foto Makanan">
                         
                         <!-- Badge Status -->
                         <span class="status-badge"
                               th:classappend="${item.status.name() == 'BOOKED'} ? 'booked'"
-                              th:text="${item.status}">
+                              th:text="${item.status.name() == 'AVAILABLE'} ? 'TERSEDIA' : 'DIAMBIL'">
                         </span>
                     </div>
 
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <!-- Kategori -->
-                            <small class="text-uppercase fw-bold text-primary" style="font-size: 0.7rem; letter-spacing: 1px;">
-                                <i class="bi bi-tag-fill me-1"></i> <span th:text="${item.category}"></span>
+                            <small class="text-uppercase fw-bold text-primary bg-light px-2 py-1 rounded" style="font-size: 0.7rem; letter-spacing: 0.5px;">
+                                <i class="bi bi-bookmarks-fill me-1"></i> <span th:text="${item.category}"></span>
                             </small>
 
-                            <!-- Badge Halal -->
-                            <span class="badge rounded-pill" 
+                            <span class="badge rounded-pill px-3 py-2" 
                                   th:classappend="${item.isHalal} ? 'badge-halal' : 'badge-non-halal'">
-                                <i th:class="${item.isHalal} ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i>
+                                <i th:class="${item.isHalal} ? 'bi bi-check-circle-fill me-1' : 'bi bi-exclamation-triangle-fill me-1'"></i>
                                 <span th:text="${item.isHalal} ? 'HALAL' : 'NON-HALAL'"></span>
                             </span>
                         </div>
 
-                        <h5 class="card-title fw-bold mb-3" th:text="${item.name}">Nama Makanan</h5>
+                        <!-- Auto Capitalize Title -->
+                        <h5 class="card-title fw-bold mb-3 text-dark text-capitalize" th:text="${item.name}">
+                            Nama Makanan
+                        </h5>
                         
                         <div class="mt-auto">
                             <div class="info-text">
-                                <i class="bi bi-geo-alt text-danger"></i>
+                                <i class="bi bi-geo-alt-fill text-danger opacity-75"></i>
                                 <span th:text="${item.location}">Lokasi</span>
                             </div>
                             <div class="info-text">
-                                <i class="bi bi-clock text-warning"></i>
-                                Exp: <span th:text="${item.expiredTime != null} ? ${#temporals.format(item.expiredTime, 'dd MMM HH:mm')} : '-'"></span>
+                                <i class="bi bi-hourglass-split text-warning opacity-75"></i>
+                                <span th:text="${item.expiredTime != null} ? 'Exp: ' + ${#temporals.format(item.expiredTime, 'dd MMM HH:mm')} : '-'"></span>
                             </div>
 
-                            <a th:href="@{'/donations/' + ${item.id}}" class="btn btn-detail w-100 mt-3">
-                                Lihat Detail <i class="bi bi-arrow-right ms-1"></i>
+                            <!-- Button Logic with Dashed Border if Booked -->
+                            <a th:href="@{'/donations/' + ${item.id}}" 
+                               class="btn w-100 mt-3"
+                               th:classappend="${item.status.name() == 'BOOKED'} ? 'btn-disabled-custom' : 'btn-detail'">
+                               
+                               <span th:text="${item.status.name() == 'AVAILABLE'} ? 'Lihat & Ambil' : 'Sudah Diambil'"></span> 
+                               <i th:if="${item.status.name() == 'AVAILABLE'}" class="bi bi-arrow-right ms-1"></i>
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Jika Kosong -->
+            <!-- Empty State -->
             <div class="col-12 text-center py-5" th:if="${#lists.isEmpty(donations)}">
                 <div class="py-5">
-                    <i class="bi bi-inbox display-1 text-muted mb-3 d-block" style="opacity: 0.3;"></i>
-                    <h4 class="fw-bold text-muted">Belum ada donasi tersedia</h4>
-                    <p class="text-muted">Jadilah orang baik pertama hari ini!</p>
+                    <div class="mb-3 text-muted opacity-25">
+                        <i class="bi bi-emoji-frown display-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Belum ada donasi saat ini</h3>
+                    <p class="text-muted">Coba cari kata kunci lain atau jadilah donatur pertama!</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Script Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.delcom.app.configs.ApiResponse;
 import org.delcom.app.configs.AuthContext;
-import org.delcom.app.entities.AuthToken;
+import org.delcom.app.entities.AuthTokenTests;
 import org.delcom.app.entities.User;
 import org.delcom.app.services.AuthTokenService;
 import org.delcom.app.services.UserService;
@@ -86,12 +86,12 @@ public class UserController {
         String jwtToken = JwtUtil.generateToken(existingUser.getId());
 
         // Hapus token lama jika ada
-        AuthToken existingAuthToken = authTokenService.findUserToken(existingUser.getId(), jwtToken);
+        AuthTokenTests existingAuthToken = authTokenService.findUserToken(existingUser.getId(), jwtToken);
         if (existingAuthToken != null) {
             authTokenService.deleteAuthToken(existingUser.getId());
         }
 
-        AuthToken authToken = new AuthToken(existingUser.getId(), jwtToken);
+        AuthTokenTests authToken = new AuthTokenTests(existingUser.getId(), jwtToken);
         var createdAuthToken = authTokenService.createAuthToken(authToken);
         if (createdAuthToken == null) {
             return ResponseEntity.status(500).body(new ApiResponse<>("error", "Gagal membuat token autentikasi", null));
