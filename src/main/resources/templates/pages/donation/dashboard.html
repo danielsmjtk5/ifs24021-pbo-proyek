@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Statistik - FoodPlate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            border: none;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: 0.3s;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        
+        .icon-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .bg-purple-soft { background: #e0e7ff; color: #4361ee; }
+        .bg-green-soft { background: #d1e7dd; color: #0f5132; }
+        .bg-red-soft { background: #f8d7da; color: #842029; }
+        
+        .stat-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 0; line-height: 1; }
+        .stat-label { color: #6c757d; font-size: 0.9rem; }
+
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar Minimalis -->
+    <nav class="navbar navbar-expand-lg bg-white border-bottom py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="/"><i class="bi bi-arrow-left me-2"></i> Kembali ke Home</a>
+            <span class="navbar-text fw-bold text-dark">Dashboard Statistik</span>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        
+        <!-- 1. KARTU RINGKASAN DATA -->
+        <div class="row g-4 mb-5">
+            <!-- Total Donasi -->
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div>
+                        <h3 class="stat-value" th:text="${halalCount + nonHalalCount}">0</h3>
+                        <span class="stat-label">Total Donasi Masuk</span>
+                    </div>
+                    <div class="icon-box bg-purple-soft"><i class="bi bi-inbox-fill"></i></div>
+                </div>
+            </div>
+
+            <!-- Donasi Halal -->
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div>
+                        <h3 class="stat-value text-success" th:text="${halalCount}">0</h3>
+                        <span class="stat-label">Makanan Halal</span>
+                    </div>
+                    <div class="icon-box bg-green-soft"><i class="bi bi-check-circle-fill"></i></div>
+                </div>
+            </div>
+
+            <!-- Donasi Non-Halal -->
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div>
+                        <h3 class="stat-value text-danger" th:text="${nonHalalCount}">0</h3>
+                        <span class="stat-label">Non-Halal</span>
+                    </div>
+                    <div class="icon-box bg-red-soft"><i class="bi bi-x-circle-fill"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. CHART SECTION -->
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="chart-container text-center">
+                    <h5 class="fw-bold mb-4">Grafik Perbandingan Kategori</h5>
+                    
+                    <!-- Canvas ChartJS -->
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="halalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script Chart -->
+    <script th:inline="javascript">
+        /* Mengambil data dari Controller */
+        var halalCount = /*[[${halalCount}]]*/ 10;
+        var nonHalalCount = /*[[${nonHalalCount}]]*/ 5;
+
+        var ctx = document.getElementById('halalChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Halal', 'Non-Halal'],
+                datasets: [{
+                    data: [halalCount, nonHalalCount],
+                    backgroundColor: ['#198754', '#dc3545'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 20, font: { family: 'Poppins' } } }
+                },
+                cutout: '70%' // Membuat efek donut lebih tipis/modern
+            }
+        });
+    </script>
+
+</body>
+</html>
