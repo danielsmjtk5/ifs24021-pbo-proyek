@@ -1,84 +1,116 @@
 package org.delcom.app.configs;
 
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.web.servlet.error.ErrorAttributes;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.WebRequest;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import jakarta.servlet.http.HttpServletRequest;
 
 @ExtendWith(MockitoExtension.class)
-class CustomErrorControllerTest {
+class CustomErrorControllerTests {
+
+    private CustomErrorController customErrorController;
 
     @Mock
-    private ErrorAttributes errorAttributes; // Mock dependencies
+    private ErrorAttributes errorAttributes;
 
-    @InjectMocks
-    private CustomErrorController customErrorController; // Inject mock ke controller
-
-    private MockHttpServletRequest request;
+    @Mock
+    private HttpServletRequest request;
 
     @BeforeEach
     void setUp() {
-        // MockHttpServletRequest adalah object palsu yang disediakan Spring untuk testing
-        request = new MockHttpServletRequest();
+        // Inisialisasi Controller dengan Mock ErrorAttributes
+        customErrorController = new CustomErrorController(errorAttributes);
     }
 
     @Test
-    void testHandleError_NotFound_404() {
-        // 1. Arrange (Siapkan skenario error)
-        Map<String, Object> mockAttributes = new HashMap<>();
-        mockAttributes.put("status", 404);
-        mockAttributes.put("error", "Not Found");
-        mockAttributes.put("message", "Halaman tidak ditemukan");
-        mockAttributes.put("path", "/halaman-hilang");
+    @DisplayName("Should return 404 Not Found response correctly")
+    void shouldReturnNotFoundResponse() {
+        // Given (Siapkan data pura-pura dari ErrorAttributes)
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("status", 404);
+        attributes.put("error", "Not Found");
+        attributes.put("message", "Halaman tidak ditemukan");
+        attributes.put("path", "/halaman-rahasia");
 
-        // Ketika errorAttributes dipanggil, kembalikan map di atas
-        when(errorAttributes.getErrorAttributes(any(WebRequest.class), any(ErrorAttributeOptions.class)))
-                .thenReturn(mockAttributes);
+        // Mock behavior: Saat getErrorAttributes dipanggil, kembalikan map di atas
+        // Kita pakai any() karena objek WebRequest dibuat baru di dalam method handleError
+        given(errorAttributes.getErrorAttributes(any(WebRequest.class), any(ErrorAttributeOptions.class)))
+                .willReturn(attributes);
 
-        // 2. Act (Jalankan method)
+        // When (Panggil method asli)
         ResponseEntity<Map<String, Object>> response = customErrorController.handleError(request);
 
-        // 3. Assert (Cek hasil)
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode()); // Cek status code
-        assertEquals(404, response.getBody().get("status"));
-        assertEquals("Not Found", response.getBody().get("error"));
-        assertEquals("Halaman tidak ditemukan", response.getBody().get("message"));
-        assertEquals("/halaman-hilang", response.getBody().get("path"));
-        assertNotNull(response.getBody().get("timestamp")); // Pastikan timestamp ada
+        // Then (Verifikasi hasil)
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        // Cek Body (Gunakan requireNonNull agar tidak ada warning kuning)
+        Map<String, Object> body = Objects.requireNonNull(response.getBody());
+
+        assertThat(body.get("status")).isEqualTo(404);
+        assertThat(body.get("error")).isEqualTo("Not Found");
+        assertThat(body.get("path")).isEqualTo("/halaman-rahasia");
+        assertThat(body).containsKey("timestamp"); // Pastikan timestamp ada
     }
 
     @Test
-    void testHandleError_InternalServerError_500() {
-        // 1. Arrange (Skenario error server, misal map kosong/default)
-        Map<String, Object> mockAttributes = new HashMap<>();
-        // Jika ErrorAttributes tidak mengembalikan status, kodemu default ke 500
-        mockAttributes.put("message", "Something went wrong");
+    @DisplayName("Should return 500 Internal Server Error correctly")
+    void shouldReturnInternalServerErrorResponse() {
+        // Given
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("status", 500);
+        attributes.put("error", "Internal Server Error");
+        attributes.put("message", "Ada masalah di server");
+        attributes.put("path", "/api/data");
 
-        when(errorAttributes.getErrorAttributes(any(WebRequest.class), any(ErrorAttributeOptions.class)))
-                .thenReturn(mockAttributes);
+        given(errorAttributes.getErrorAttributes(any(WebRequest.class), any(ErrorAttributeOptions.class)))
+                .willReturn(attributes);
 
-        // 2. Act
+        // When
         ResponseEntity<Map<String, Object>> response = customErrorController.handleError(request);
 
-        // 3. Assert
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals(500, response.getBody().get("status"));
-        assertEquals("Terjadi kesalahan pada server", response.getBody().get("message")); // Cek fallback message
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        Map<String, Object> body = Objects.requireNonNull(response.getBody());
+        assertThat(body.get("status")).isEqualTo(500);
+        assertThat(body.get("error")).isEqualTo("Internal Server Error");
+    }
+
+    @Test
+    @DisplayName("Should handle default values if attributes are missing")
+    void shouldHandleDefaultValues() {
+        // Given: ErrorAttributes mengembalikan map kosong (kasus ekstrem)
+        Map<String, Object> emptyAttributes = new HashMap<>();
+        
+        given(errorAttributes.getErrorAttributes(any(WebRequest.class), any(ErrorAttributeOptions.class)))
+                .willReturn(emptyAttributes);
+
+        // When
+        ResponseEntity<Map<String, Object>> response = customErrorController.handleError(request);
+
+        // Then
+        // Sesuai logika kode Anda: attributes.getOrDefault("status", 500)
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR); // 500
+
+        Map<String, Object> body = Objects.requireNonNull(response.getBody());
+        assertThat(body.get("status")).isEqualTo(500);
+        assertThat(body.get("message")).isEqualTo("Terjadi kesalahan pada server"); // Default message di kode Anda
+        assertThat(body.get("path")).isEqualTo("unknown"); // Default path di kode Anda
     }
 }

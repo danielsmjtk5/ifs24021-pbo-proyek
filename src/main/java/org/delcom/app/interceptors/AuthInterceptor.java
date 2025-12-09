@@ -1,7 +1,7 @@
 package org.delcom.app.interceptors;
 
 import org.delcom.app.configs.AuthContext;
-import org.delcom.app.entities.AuthTokenTests;
+import org.delcom.app.entities.AuthToken; // Pastikan import ini benar
 import org.delcom.app.entities.User;
 import org.delcom.app.services.AuthTokenService;
 import org.delcom.app.services.UserService;
@@ -59,7 +59,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         // Cari token di database
-        AuthTokenTests authToken = authTokenService.findUserToken(userId, token);
+        // PERBAIKAN DI SINI: Gunakan AuthToken, bukan AuthTokenTests
+        AuthToken authToken = authTokenService.findUserToken(userId, token);
+        
         if (authToken == null) {
             sendErrorResponse(response, 401, "Token autentikasi sudah expired");
             return false;
@@ -86,9 +88,6 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private boolean isPublicEndpoint(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // String method = request.getMethod();
-
-        // Endpoint public yang tidak perlu auth
         return path.startsWith("/api/auth") || path.equals("/error");
     }
 

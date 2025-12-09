@@ -2,7 +2,7 @@ package org.delcom.app.repositories;
 
 import java.util.UUID;
 
-import org.delcom.app.entities.AuthTokenTests;
+import org.delcom.app.entities.AuthToken; // Gunakan AuthToken yang benar
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -10,12 +10,15 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
-public interface AuthTokenRepository extends JpaRepository<AuthTokenTests, UUID> {
+public interface AuthTokenRepository extends JpaRepository<AuthToken, UUID> {
+
+    // Perbaikan Query: Gunakan nama entity "AuthToken"
     @Query("SELECT at FROM AuthToken at WHERE at.userId = ?1 AND at.token = ?2")
-    AuthTokenTests findUserToken(UUID userId, String token);
+    AuthToken findUserToken(UUID userId, String token);
 
     @Modifying
     @Transactional
+    // Perbaikan Query: Gunakan nama entity "AuthToken"
     @Query("DELETE FROM AuthToken at WHERE at.userId = ?1")
     void deleteByUserId(UUID userId);
 }
