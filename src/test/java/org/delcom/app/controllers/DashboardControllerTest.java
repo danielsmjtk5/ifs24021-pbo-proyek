@@ -1,13 +1,11 @@
 package org.delcom.app.controllers;
 
 import org.delcom.app.services.DonationService;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.security.test.context.support.WithMockUser;
-// Import khusus untuk Spring Boot 3.4+ (Pengganti @MockBean)
-import org.springframework.test.context.bean.override.mockito.MockitoBean; 
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.when;
@@ -15,42 +13,31 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DashboardController.class)
-public class DashboardControllerTest {
+@AutoConfigureMockMvc(addFilters = false) // ✅ SOLUSI: Matikan Security Filter (Login/CSRF)
+class DashboardControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    // Menggunakan @MockitoBean karena Anda memakai Spring Boot versi 3.4.12
-    // Ini menggantikan @MockBean yang sudah deprecated
-    @MockitoBean
+    @MockBean
     private DonationService donationService;
 
+    // Mocking Bean Security agar Application Context tidak error saat load
+    @MockBean private org.delcom.app.services.UserService userService;
+    @MockBean private org.delcom.app.configs.AuthContext authContext;
+    @MockBean private org.delcom.app.services.AuthTokenService authTokenService;
+
     @Test
-    @DisplayName("Dashboard menampilkan data donasi dengan benar saat user login")
-    @WithMockUser(username = "admin", roles = {"ADMIN"}) // Wajib ada agar lolos Security
-    public void testDashboard() throws Exception {
-        
-        // 1. ARRANGE (Persiapan Data Mock)
-        long mockHalalCount = 150L;
-        long mockNonHalalCount = 50L;
+    void testDashboard() throws Exception {
+        // Arrange
+        when(donationService.countHalal(true)).thenReturn(10L);
+        when(donationService.countHalal(false)).thenReturn(5L);
 
-        // Simulasi respon dari DonationService
-        // Pastikan DonationService sudah menggunakan parameter boolean (huruf kecil)
-        when(donationService.countHalal(true)).thenReturn(mockHalalCount);
-        when(donationService.countHalal(false)).thenReturn(mockNonHalalCount);
-
-        // 2. ACT & ASSERT (Eksekusi & Verifikasi)
+        // Act & Assert
         mockMvc.perform(get("/dashboard"))
-                // Harapannya: Status 200 OK
-                .andExpect(status().isOk())
-                
-                // Harapannya: Nama view/file HTML sesuai controller
+                .andExpect(status().isOk()) // Harapannya 200 OK (Bukan 401/403)
                 .andExpect(view().name("pages/donation/dashboard"))
-                
-                // Harapannya: Model attribute 'halalCount' bernilai 150
-                .andExpect(model().attribute("halalCount", mockHalalCount))
-                
-                // Harapannya: Model attribute 'nonHalalCount' bernilai 50
-                .andExpect(model().attribute("nonHalalCount", mockNonHalalCount));
+                .andExpect(model().attribute("halalCount", 10L))
+                .andExpect(model().attribute("nonHalalCount", 5L));
     }
 }

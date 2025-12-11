@@ -5,6 +5,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class DonationForm {
     private String name;
     private String location;
+    
+    // --- TAMBAHAN BARU (Wajib ada biar tidak error di Service) ---
+    private Double latitude;
+    private Double longitude;
+    // -------------------------------------------------------------
+
     private String category;
     private Boolean isHalal;
     private Integer portion;
@@ -17,7 +23,7 @@ public class DonationForm {
     // --- CONSTRUCTOR KOSONG ---
     public DonationForm() {}
 
-    // --- GETTERS AND SETTERS MANUAL ---
+    // --- GETTERS AND SETTERS ---
     
     public String getName() {
         return name;
@@ -34,6 +40,24 @@ public class DonationForm {
     public void setLocation(String location) {
         this.location = location;
     }
+
+    // --- GETTER & SETTER LATITUDE/LONGITUDE ---
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+    // ------------------------------------------
 
     public String getCategory() {
         return category;

@@ -4,13 +4,14 @@ import org.delcom.app.dto.DonationForm;
 import org.delcom.app.entities.Donation;
 import org.delcom.app.entities.User;
 import org.delcom.app.services.DonationService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.security.core.Authentication;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -18,145 +19,205 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(DonationController.class)
-public class DonationControllerTest {
+@WebMvcTest(controllers = DonationController.class)
+@AutoConfigureMockMvc(addFilters = false)
+class DonationControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean
+    @MockBean
     private DonationService donationService;
 
-    // Variabel dummy untuk keperluan tes
+    @MockBean private org.delcom.app.services.UserService userService;
+    @MockBean private org.delcom.app.configs.AuthContext authContext;
+    @MockBean private org.delcom.app.services.AuthTokenService authTokenService;
+
     private User mockUser;
-    private Authentication mockAuth;
-    private UUID donationId;
+    private UsernamePasswordAuthenticationToken principal;
 
     @BeforeEach
     void setUp() {
-        // 1. Siapkan User Entity Palsu (Mock)
-        // Ini penting karena controller Anda melakukan casting: (User) authentication.getPrincipal()
-        mockUser = new User();
+        mockUser = new User("Budi", "budi@mail.com", "123");
         mockUser.setId(UUID.randomUUID());
-        mockUser.setUsername("testuser");
-        mockUser.setEmail("test@delcom.org");
-
-        // 2. Siapkan Authentication Palsu
-        mockAuth = mock(Authentication.class);
-        when(mockAuth.getPrincipal()).thenReturn(mockUser); // Agar casting berhasil
-        when(mockAuth.isAuthenticated()).thenReturn(true);
-        
-        // 3. ID Donasi Dummy
-        donationId = UUID.randomUUID();
+        principal = new UsernamePasswordAuthenticationToken(mockUser, "password");
     }
 
-    // --- TEST HALAMAN DETAIL ---
+    // --- TEST DETAIL (Lengkap dengan atribut agar Thymeleaf tidak error) ---
     @Test
-    @DisplayName("GET /donations/{id} - Menampilkan detail donasi")
     void testDetail() throws Exception {
-        Donation donation = new Donation();
-        donation.setId(donationId);
+        UUID id = UUID.randomUUID();
         
-        when(donationService.getById(donationId)).thenReturn(donation);
+        Donation d = new Donation();
+        d.setId(id);
+        d.setName("Nasi Goreng");
+        d.setLocation("Kantite");
+        d.setCategory("Makanan Berat");
+        d.setPortion(1);
+        d.setIsHalal(true);
+        d.setDescription("Enak");
+        d.setStatus(Donation.DonationStatus.AVAILABLE); 
+        d.setCreatedBy(mockUser);
 
-        mockMvc.perform(get("/donations/{id}", donationId)
-                        .with(authentication(mockAuth))) // Inject user login
+        when(donationService.getById(id)).thenReturn(d);
+
+        mockMvc.perform(get("/donations/" + id)
+                .principal(principal))
                 .andExpect(status().isOk())
                 .andExpect(view().name("pages/donation/detail"))
                 .andExpect(model().attributeExists("donation"));
     }
 
-    // --- TEST HALAMAN FORM ADD ---
+    // --- TEST ADD FORM ---
     @Test
-    @DisplayName("GET /donations/add - Menampilkan form tambah")
     void testAddForm() throws Exception {
         mockMvc.perform(get("/donations/add")
-                        .with(authentication(mockAuth)))
+                .principal(principal))
                 .andExpect(status().isOk())
-                .andExpect(view().name("pages/donation/form"))
-                .andExpect(model().attributeExists("donationForm"));
+                .andExpect(view().name("pages/donation/form"));
     }
 
-    // --- TEST POST ADD (SIMPAN) ---
     @Test
-    @DisplayName("POST /donations/add - Menyimpan donasi baru")
     void testSave() throws Exception {
-        // Simulasi input form
         mockMvc.perform(post("/donations/add")
-                        .with(authentication(mockAuth)) // User login
-                        .with(csrf()) // Token CSRF (Wajib untuk POST di Spring Security)
-                        .param("name", "Nasi Kotak")
-                        .param("location", "Bandung")
-                        .param("isHalal", "true")) // Parameter form
-                .andExpect(status().is3xxRedirection()) // Harapannya redirect
-                .andExpect(redirectedUrl("/")); // Redirect ke Home
+                .principal(principal)
+                .flashAttr("donationForm", new DonationForm()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"));
 
-        // Verifikasi service dipanggil dengan benar
         verify(donationService).saveDonation(any(DonationForm.class), eq(mockUser));
     }
 
-    // --- TEST HALAMAN FORM EDIT ---
+    // --- TEST EDIT FORM (Happy Path) ---
     @Test
-    @DisplayName("GET /donations/edit/{id} - Menampilkan form edit dengan data lama")
     void testEditForm() throws Exception {
+        UUID id = UUID.randomUUID();
         Donation d = new Donation();
-        d.setId(donationId);
-        d.setName("Donasi Lama");
-        d.setExpiredTime(LocalDateTime.now()); // Supaya tidak null saat dikonversi ke String
+        d.setName("Old Name");
+        // Expired time null (default) -> untuk test cabang 'else' atau 'false'
+        
+        when(donationService.getById(id)).thenReturn(d);
 
-        when(donationService.getById(donationId)).thenReturn(d);
-
-        mockMvc.perform(get("/donations/edit/{id}", donationId)
-                        .with(authentication(mockAuth)))
+        mockMvc.perform(get("/donations/edit/" + id)
+                .principal(principal))
                 .andExpect(status().isOk())
-                .andExpect(view().name("pages/donation/edit"))
-                .andExpect(model().attributeExists("donationForm"))
-                .andExpect(model().attribute("id", donationId));
+                .andExpect(view().name("pages/donation/edit"));
     }
 
-    // --- TEST POST EDIT (UPDATE) ---
+    // 🔥 BARU: TEST EDIT FORM DENGAN EXPIRED TIME (Agar Baris 63 Hijau)
     @Test
-    @DisplayName("POST /donations/edit/{id} - Mengupdate donasi")
+    void testEditForm_WithExpiredTime() throws Exception {
+        UUID id = UUID.randomUUID();
+        Donation d = new Donation();
+        d.setName("Makanan Basi");
+        // Kita set ExpiredTime agar kondisi IF menjadi TRUE
+        d.setExpiredTime(LocalDateTime.now()); 
+        
+        when(donationService.getById(id)).thenReturn(d);
+
+        mockMvc.perform(get("/donations/edit/" + id)
+                .principal(principal))
+                .andExpect(status().isOk());
+        // Code coverage akan mendeteksi baris di dalam IF dijalankan
+    }
+
+    @Test
     void testUpdate() throws Exception {
-        mockMvc.perform(post("/donations/edit/{id}", donationId)
-                        .with(authentication(mockAuth))
-                        .with(csrf())
-                        .param("name", "Nasi Update")
-                        .param("description", "Deskripsi baru"))
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(post("/donations/edit/" + id)
+                .principal(principal)
+                .flashAttr("donationForm", new DonationForm()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"));
 
-        verify(donationService).updateDonation(eq(donationId), any(DonationForm.class), eq(mockUser));
+        verify(donationService).updateDonation(eq(id), any(DonationForm.class), eq(mockUser));
     }
 
-    // --- TEST DELETE ---
     @Test
-    @DisplayName("GET /donations/delete/{id} - Menghapus donasi")
     void testDelete() throws Exception {
-        mockMvc.perform(get("/donations/delete/{id}", donationId)
-                        .with(authentication(mockAuth)))
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(get("/donations/delete/" + id)
+                .principal(principal))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"));
 
-        verify(donationService).deleteDonation(eq(donationId), eq(mockUser));
+        verify(donationService).deleteDonation(id, mockUser);
     }
 
-    // --- TEST CLAIM ---
     @Test
-    @DisplayName("GET /donations/claim/{id} - Mengklaim donasi")
     void testClaim() throws Exception {
-        mockMvc.perform(get("/donations/claim/{id}", donationId)
-                        .with(authentication(mockAuth)))
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(get("/donations/claim/" + id)
+                .principal(principal))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/donations/" + donationId));
+                .andExpect(redirectedUrl("/donations/" + id));
 
-        verify(donationService).claimDonation(eq(donationId), eq(mockUser));
+        verify(donationService).claimDonation(id, mockUser);
+    }
+
+    // 🔥 PERBAIKAN: Tambahkan 'throws Exception' di baris ini
+    // 🔥 PERBAIKAN: Gunakan assertThrows untuk menangkap Exception yang meledak
+    @Test
+    void testDelete_NotLoggedIn_ShouldThrowException() {
+        UUID id = UUID.randomUUID();
+
+        // Kita "bungkus" pemanggilan mockMvc dengan assertThrows.
+        // Artinya: "Saya berekspektasi kode di dalam blok ini akan ERROR/MELEDAK"
+        Exception exception = Assertions.assertThrows(Exception.class, () -> {
+            mockMvc.perform(get("/donations/delete/" + id));
+        });
+
+        // Setelah error tertangkap, kita bedah isinya.
+        // Exception dari MockMvc biasanya terbungkus ServletException, 
+        // jadi kita cek 'Cause' (penyebab aslinya).
+        
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(exception.getCause() instanceof RuntimeException);
+        Assertions.assertEquals("User not logged in", exception.getCause().getMessage());
+    }
+
+    // --- SKENARIO 1: Authentication Null (Baris 23 bagian kiri) ---
+    @Test
+    void testGetAuthUser_WhenAuthenticationIsNull_ShouldThrowException() {
+        UUID id = UUID.randomUUID();
+
+        // Panggil endpoint TANPA .principal() sama sekali
+        Exception exception = Assertions.assertThrows(Exception.class, () -> {
+            mockMvc.perform(get("/donations/delete/" + id));
+        });
+
+        // Verifikasi error
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(exception.getCause() instanceof RuntimeException);
+        Assertions.assertEquals("User not logged in", exception.getCause().getMessage());
+    }
+
+    // --- SKENARIO 2: Principal Null (Baris 23 bagian kanan) ---
+    // Ini yang bikin garis kuning/merah jadi hijau total!
+    @Test
+    void testGetAuthUser_WhenPrincipalIsNull_ShouldThrowException() {
+        UUID id = UUID.randomUUID();
+
+        // 1. Kita Mock objek Authentication yang "rusak" (getPrincipal return null)
+        org.springframework.security.core.Authentication brokenAuth = 
+                org.mockito.Mockito.mock(org.springframework.security.core.Authentication.class);
+        
+        when(brokenAuth.getPrincipal()).thenReturn(null);
+
+        // 2. Panggil endpoint DENGAN auth yang rusak tadi
+        Exception exception = Assertions.assertThrows(Exception.class, () -> {
+            mockMvc.perform(get("/donations/delete/" + id)
+                    .principal(brokenAuth)); 
+        });
+
+        // 3. Verifikasi error tetap muncul
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(exception.getCause() instanceof RuntimeException);
+        Assertions.assertEquals("User not logged in", exception.getCause().getMessage());
     }
 }

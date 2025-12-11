@@ -1,23 +1,10 @@
 package org.delcom.app.entities;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
+import jakarta.persistence.*;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "donations")
@@ -30,12 +17,13 @@ public class Donation {
     @Column(nullable = false)
     private String name;
 
-    private String location; // Nama lokasi (Teks)
+    private String location;
 
-    // --- BARU: KOORDINAT PETA ---
+    // --- TAMBAHAN BARU ---
+    // Menambahkan field latitude dan longitude agar Test tidak error
     private Double latitude;
     private Double longitude;
-    // ----------------------------
+    // ---------------------
 
     private String category; // Makanan Berat, Snack, Minuman
 
@@ -74,7 +62,7 @@ public class Donation {
         AVAILABLE, BOOKED, EXPIRED
     }
 
-    // --- CONSTRUCTOR KOSONG ---
+    // --- CONSTRUCTOR KOSONG (Wajib untuk JPA) ---
     public Donation() {}
 
     // --- LIFECYCLE CALLBACKS ---
@@ -90,7 +78,7 @@ public class Donation {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // --- GETTERS AND SETTERS ---
+    // --- GETTERS AND SETTERS (MANUAL) ---
 
     public UUID getId() {
         return id;
@@ -116,7 +104,8 @@ public class Donation {
         this.location = location;
     }
 
-    // Getter Setter untuk Peta
+    // --- TAMBAHAN GETTER & SETTER LATITUDE/LONGITUDE ---
+    
     public Double getLatitude() {
         return latitude;
     }
@@ -132,6 +121,8 @@ public class Donation {
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
+    
+    // ---------------------------------------------------
 
     public String getCategory() {
         return category;

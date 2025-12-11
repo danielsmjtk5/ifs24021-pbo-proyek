@@ -2,70 +2,73 @@ package org.delcom.app.entities;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@DataJpaTest
 class AuthTokenTest {
 
+    @Autowired
+    private TestEntityManager entityManager;
+
     @Test
-    @DisplayName("Constructor dengan parameter harus mengisi userId, token, dan createdAt")
-    void testParameterizedConstructor() {
-        // 1. ARRANGE
+    @DisplayName("Test 1: POJO Manual (Constructor, Getter, Setter)")
+    void testPojoMethods() {
+        // Data Dummy
         UUID userId = UUID.randomUUID();
-        String tokenString = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+        String token = "abc-123-token";
 
-        // 2. ACT
-        AuthToken authToken = new AuthToken(userId, tokenString);
-
-        // 3. ASSERT
-        assertEquals(userId, authToken.getUserId());
-        assertEquals(tokenString, authToken.getToken());
+        // 1. Test Constructor Parameter
+        AuthToken authToken = new AuthToken(userId, token);
         
-        // Constructor Anda memiliki logic: this.createdAt = LocalDateTime.now();
-        // Jadi createdAt tidak boleh null
-        assertNotNull(authToken.getCreatedAt(), "createdAt harus terisi otomatis di constructor");
+        // Verifikasi nilai awal
+        assertThat(authToken.getUserId()).isEqualTo(userId);
+        assertThat(authToken.getToken()).isEqualTo(token);
+        assertThat(authToken.getCreatedAt()).isNotNull(); // Constructor sudah mengisi ini
+
+        // 2. Test Setter
+        UUID newId = UUID.randomUUID();
+        String newToken = "xyz-789-token";
+        
+        authToken.setId(newId);
+        authToken.setToken(newToken);
+        authToken.setUserId(UUID.randomUUID());
+
+        // 3. Test Getter
+        assertThat(authToken.getId()).isEqualTo(newId);
+        assertThat(authToken.getToken()).isEqualTo(newToken);
     }
 
     @Test
-    @DisplayName("Getter dan Setter harus berfungsi menyimpan nilai")
-    void testGettersAndSetters() {
-        // 1. ARRANGE
+    @DisplayName("Test 2: JPA Persistence & @PrePersist")
+    void testPersistenceLifecycle() {
+        // 1. Buat object menggunakan Constructor Kosong (No-Args)
         AuthToken authToken = new AuthToken();
-        UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        String token = "random-token-string";
-
-        // 2. ACT
-        authToken.setId(id);
-        authToken.setUserId(userId);
-        authToken.setToken(token);
-
-        // 3. ASSERT
-        assertEquals(id, authToken.getId());
-        assertEquals(userId, authToken.getUserId());
-        assertEquals(token, authToken.getToken());
-    }
-
-    @Test
-    @DisplayName("Method onCreate (@PrePersist) harus mengisi createdAt")
-    void testOnCreate() {
-        // 1. ARRANGE
-        AuthToken authToken = new AuthToken();
-        // Saat pakai constructor kosong, createdAt masih null (karena field belum diinisialisasi)
-        assertNull(authToken.getCreatedAt(), "Awalnya createdAt harus null");
-
-        // 2. ACT
-        // Kita panggil method protected ini secara manual untuk simulasi saat JPA mau menyimpan ke DB
-        authToken.onCreate();
-
-        // 3. ASSERT
-        assertNotNull(authToken.getCreatedAt(), "Setelah onCreate dipanggil, createdAt harus terisi");
+        authToken.setUserId(UUID.randomUUID());
+        authToken.setToken("db-token-test");
         
-        // Pastikan waktunya baru saja dibuat (misal, tidak lebih dari 1 detik yang lalu)
-        assertTrue(authToken.getCreatedAt().isBefore(LocalDateTime.now().plusSeconds(1)));
-        assertTrue(authToken.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(5)));
+        // Saat ini ID masih null
+        assertThat(authToken.getId()).isNull();
+
+        // 2. Simpan ke Database Virtual (H2)
+        // persistFlushFind = simpan, flush, lalu ambil ulang dari DB
+        AuthToken savedToken = entityManager.persistFlushFind(authToken);
+
+        // 3. Verifikasi @GeneratedValue (ID harus terisi otomatis)
+        assertThat(savedToken.getId()).isNotNull();
+        assertThat(savedToken.getId()).isInstanceOf(UUID.class);
+
+        // 4. Verifikasi @PrePersist (onCreate harus jalan mengisi createdAt)
+        assertThat(savedToken.getCreatedAt()).isNotNull();
+        assertThat(savedToken.getCreatedAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        
+        // 5. Verifikasi Data Lain
+        assertThat(savedToken.getToken()).isEqualTo("db-token-test");
     }
 }

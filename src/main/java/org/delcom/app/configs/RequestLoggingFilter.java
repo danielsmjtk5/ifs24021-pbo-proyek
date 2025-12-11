@@ -1,15 +1,17 @@
 package org.delcom.app.configs;
 
+import java.io.IOException;
+import java.util.Arrays;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter; // ✅ Tambahkan Import ini
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Arrays;
 
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {
@@ -27,10 +29,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private boolean livereload;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,     // ✅ Tambahkan @NonNull
+            @NonNull HttpServletResponse response,   // ✅ Tambahkan @NonNull
+            @NonNull FilterChain filterChain         // ✅ Tambahkan @NonNull
+    ) throws ServletException, IOException {
 
         long start = System.currentTimeMillis();
         filterChain.doFilter(request, response);

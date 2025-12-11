@@ -1,19 +1,20 @@
 package org.delcom.app.interceptors;
 
+import java.util.UUID;
+
 import org.delcom.app.configs.AuthContext;
-import org.delcom.app.entities.AuthToken; // Pastikan import ini benar
+import org.delcom.app.entities.AuthToken;
 import org.delcom.app.entities.User;
 import org.delcom.app.services.AuthTokenService;
 import org.delcom.app.services.UserService;
 import org.delcom.app.utils.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Autowired; // ✅ Tambahkan Import ini
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import java.util.UUID;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
@@ -28,8 +29,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     protected UserService userService;
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
-            throws Exception {
+    public boolean preHandle(
+            @NonNull HttpServletRequest request,   // ✅ Tambahkan @NonNull
+            @NonNull HttpServletResponse response, // ✅ Tambahkan @NonNull
+            @NonNull Object handler                // ✅ Tambahkan @NonNull
+    ) throws Exception {
+        
         // Skip auth untuk endpoint public
         if (isPublicEndpoint(request)) {
             return true;
@@ -59,7 +64,6 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         // Cari token di database
-        // PERBAIKAN DI SINI: Gunakan AuthToken, bukan AuthTokenTests
         AuthToken authToken = authTokenService.findUserToken(userId, token);
         
         if (authToken == null) {

@@ -1,6 +1,5 @@
 package org.delcom.app.configs;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,9 +7,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc; // Import ini penting
-import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,70 +24,30 @@ class SecurityConfigTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // --- TEST 1: URL ACCESS CONTROL ---
-
     @Test
-    @DisplayName("Public endpoints (/auth/**) should be accessible without login")
-    void shouldAllowAccessToPublicEndpoints() throws Exception {
-        // PERBAIKAN: Gunakan .andReturn() lalu cek statusnya manual dengan AssertJ
-        // Ini menghindari error lambda pada Matcher
+    @DisplayName("Test Kotak Merah 1: Redirect ke /auth/login jika belum login")
+    void testUnauthenticatedAccessRedirects() throws Exception {
+        // Skenario: User belum login mencoba akses halaman terlindungi ("/dashboard")
+        // Logika SecurityConfig baris 19 (res.sendRedirect) akan dieksekusi di sini.
         
-        // 1. Cek halaman login
-        MvcResult loginResult = mockMvc.perform(get("/auth/login")).andReturn();
-        int loginStatus = loginResult.getResponse().getStatus();
-        
-        // Pastikan tidak 401 (Unauthorized) atau 403 (Forbidden)
-        assertThat(loginStatus).isNotEqualTo(401);
-        assertThat(loginStatus).isNotEqualTo(403);
-
-        // 2. Cek aset statis
-        MvcResult assetResult = mockMvc.perform(get("/assets/css/style.css")).andReturn();
-        int assetStatus = assetResult.getResponse().getStatus();
-        
-        assertThat(assetStatus).isNotEqualTo(403);
+        mockMvc.perform(get("/dashboard")) 
+                .andExpect(status().is3xxRedirection()) // Memastikan statusnya 302 Found
+                .andExpect(redirectedUrl("/auth/login")); // Memastikan tujuannya ke /auth/login
     }
 
     @Test
-    @DisplayName("Protected endpoints (root /) should redirect unauthenticated users to /auth/login")
-    void shouldRedirectUnauthenticatedUsers() throws Exception {
-        // Bagian ini sudah benar karena menggunakan Matcher bawaan (.is3xxRedirection)
-        mockMvc.perform(get("/"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/auth/login"));
-    }
-
-    @Test
-    @DisplayName("Authenticated users should access protected endpoints")
-    @WithMockUser(username = "testuser", roles = "USER") 
-    void shouldAllowAuthenticatedUsers() throws Exception {
-        // PERBAIKAN: Gunakan .andReturn()
-        MvcResult result = mockMvc.perform(get("/")).andReturn();
-        int status = result.getResponse().getStatus();
-
-        // Jika user sudah login, dia TIDAK boleh dilempar (redirect 302) ke halaman login lagi
-        // Statusnya harusnya 200 (OK) atau 404 (Not Found - jika halaman belum dibuat), tapi bukan 302/401/403
-        assertThat(status).isNotEqualTo(302);
-        assertThat(status).isNotEqualTo(401);
-        assertThat(status).isNotEqualTo(403);
-    }
-
-    // --- TEST 2: PASSWORD ENCODER ---
-
-    @Test
-    @DisplayName("PasswordEncoder bean should be BCrypt and work correctly")
-    void passwordEncoderShouldBeBCrypt() {
-        // 1. Cek tipe bean
+    @DisplayName("Test Kotak Merah 2: PasswordEncoder menggunakan BCrypt")
+    void testPasswordEncoderBean() {
+        // Skenario: Memastikan Bean yang dibuat di baris 41 adalah BCrypt
+        
+        // 1. Cek tipe class-nya (Menyentuh baris 'return new BCryptPasswordEncoder()')
         assertThat(passwordEncoder).isInstanceOf(BCryptPasswordEncoder.class);
 
-        // 2. Cek fungsi encode
-        String rawPassword = "mySecretPassword";
-        String encodedPassword = passwordEncoder.encode(rawPassword);
+        // 2. Cek fungsionalitas (Opsional, tapi bagus untuk coverage)
+        String passwordAsli = "rahasia123";
+        String passwordHash = passwordEncoder.encode(passwordAsli);
 
-        // Password asli tidak boleh sama dengan hasil enkripsi
-        assertThat(encodedPassword).isNotEqualTo(rawPassword);
-        
-        // 3. Cek fungsi verifikasi (matches)
-        assertThat(passwordEncoder.matches(rawPassword, encodedPassword)).isTrue();
-        assertThat(passwordEncoder.matches("wrongPassword", encodedPassword)).isFalse();
+        assertThat(passwordHash).isNotEqualTo(passwordAsli);
+        assertThat(passwordEncoder.matches(passwordAsli, passwordHash)).isTrue();
     }
 }

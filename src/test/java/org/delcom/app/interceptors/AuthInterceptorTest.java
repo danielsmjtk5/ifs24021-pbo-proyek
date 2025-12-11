@@ -1,73 +1,94 @@
 package org.delcom.app.interceptors;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.UUID;
+
 import org.delcom.app.configs.AuthContext;
 import org.delcom.app.entities.AuthToken;
 import org.delcom.app.entities.User;
 import org.delcom.app.services.AuthTokenService;
 import org.delcom.app.services.UserService;
 import org.delcom.app.utils.JwtUtil;
-import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @ExtendWith(MockitoExtension.class)
 class AuthInterceptorTest {
 
+    @Mock
+    private AuthContext authContext;
+
+    @Mock
+    private AuthTokenService authTokenService;
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private HttpServletRequest request;
+
+    @Mock
+    private HttpServletResponse response;
+
     @InjectMocks
     private AuthInterceptor authInterceptor;
 
-    @Mock private AuthContext authContext;
-    @Mock private AuthTokenService authTokenService;
-    @Mock private UserService userService;
-
-    // Mock Objek HTTP Request & Response
-    @Mock private HttpServletRequest request;
-    @Mock private HttpServletResponse response;
-
+    // Helper untuk menangkap output JSON dari response
     private StringWriter responseWriter;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        // Persiapan untuk menangkap JSON error response
+    private void setupResponseWriter() throws Exception {
         responseWriter = new StringWriter();
-        lenient().when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));
+        PrintWriter writer = new PrintWriter(responseWriter);
+        when(response.getWriter()).thenReturn(writer);
     }
 
-    // --- CASE 1: PUBLIC ENDPOINT ---
+    // --- TEST CASE 1: PUBLIC ENDPOINTS ---
+
     @Test
-    @DisplayName("Harus LOLOS (return true) jika akses endpoint public")
-    void testPublicEndpoint() throws Exception {
+    @DisplayName("Harus lolos (return true) jika endpoint adalah /api/auth/**")
+    void testPublicEndpointAuth() throws Exception {
         when(request.getRequestURI()).thenReturn("/api/auth/login");
 
         boolean result = authInterceptor.preHandle(request, response, new Object());
 
         assertTrue(result);
-        verifyNoInteractions(authTokenService); // Service tidak boleh dipanggil
+        verifyNoInteractions(authTokenService, userService, authContext);
     }
 
-    // --- CASE 2: NO TOKEN ---
     @Test
-    @DisplayName("Harus GAGAL jika tidak ada token")
-    void testMissingToken() throws Exception {
-        when(request.getRequestURI()).thenReturn("/api/users/me");
+    @DisplayName("Harus lolos (return true) jika endpoint adalah /error")
+    void testPublicEndpointError() throws Exception {
+        when(request.getRequestURI()).thenReturn("/error");
+
+        boolean result = authInterceptor.preHandle(request, response, new Object());
+
+        assertTrue(result);
+        verifyNoInteractions(authTokenService, userService, authContext);
+    }
+
+    // --- TEST CASE 2: TOKEN MISSING / INVALID FORMAT ---
+
+    @Test
+    @DisplayName("Gagal 401: Header Authorization kosong (null)")
+    void testTokenMissingNull() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/users");
         when(request.getHeader("Authorization")).thenReturn(null);
+        setupResponseWriter();
 
         boolean result = authInterceptor.preHandle(request, response, new Object());
 
@@ -76,17 +97,34 @@ class AuthInterceptorTest {
         assertTrue(responseWriter.toString().contains("Token autentikasi tidak ditemukan"));
     }
 
-    // --- CASE 3: INVALID JWT FORMAT ---
     @Test
-    @DisplayName("Harus GAGAL jika format JWT tidak valid")
-    void testInvalidJwtFormat() throws Exception {
-        when(request.getRequestURI()).thenReturn("/api/users/me");
-        when(request.getHeader("Authorization")).thenReturn("Bearer invalid-token");
+    @DisplayName("Gagal 401: Header Authorization tidak ada 'Bearer '")
+    void testTokenFormatInvalid() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/users");
+        when(request.getHeader("Authorization")).thenReturn("Basic 12345"); // Bukan Bearer
+        setupResponseWriter();
 
-        // Mock Static Method JwtUtil
-        try (MockedStatic<JwtUtil> jwtUtilMock = mockStatic(JwtUtil.class)) {
-            // Paksa validateToken return false
-            jwtUtilMock.when(() -> JwtUtil.validateToken(anyString(), anyBoolean())).thenReturn(false);
+        boolean result = authInterceptor.preHandle(request, response, new Object());
+
+        // Logika kode Anda: extractToken return null jika tidak startWith Bearer
+        // Akibatnya masuk ke blok "Token autentikasi tidak ditemukan"
+        assertFalse(result);
+        verify(response).setStatus(401);
+        assertTrue(responseWriter.toString().contains("Token autentikasi tidak ditemukan"));
+    }
+
+    // --- TEST CASE 3: STATIC MOCKING JWT UTIL & LOGIC FLOW ---
+
+    @Test
+    @DisplayName("Gagal 401: JwtUtil gagal memvalidasi token")
+    void testJwtInvalid() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/users");
+        when(request.getHeader("Authorization")).thenReturn("Bearer invalid.token.here");
+        setupResponseWriter();
+
+        // Mock Static JwtUtil
+        try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
+            mockedJwt.when(() -> JwtUtil.validateToken("invalid.token.here", true)).thenReturn(false);
 
             boolean result = authInterceptor.preHandle(request, response, new Object());
 
@@ -96,23 +134,41 @@ class AuthInterceptorTest {
         }
     }
 
-    // --- CASE 4: TOKEN EXPIRED / TIDAK ADA DI DB ---
     @Test
-    @DisplayName("Harus GAGAL jika token valid tapi tidak ditemukan di Database")
-    void testTokenNotFoundInDB() throws Exception {
-        UUID userId = UUID.randomUUID();
-        String token = "valid-token-string";
-
-        when(request.getRequestURI()).thenReturn("/api/users/me");
+    @DisplayName("Gagal 401: Jwt valid tapi userId extraction null")
+    void testJwtUserIdNull() throws Exception {
+        String token = "valid.structure.token";
+        when(request.getRequestURI()).thenReturn("/api/users");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        setupResponseWriter();
 
-        try (MockedStatic<JwtUtil> jwtUtilMock = mockStatic(JwtUtil.class)) {
-            // 1. JWT Format Valid
-            jwtUtilMock.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
-            // 2. Ekstrak ID Berhasil
-            jwtUtilMock.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
+        try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
+            mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
+            mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(null);
 
-            // 3. TAPI... Di Database tidak ditemukan (return null)
+            boolean result = authInterceptor.preHandle(request, response, new Object());
+
+            assertFalse(result);
+            verify(response).setStatus(401);
+            assertTrue(responseWriter.toString().contains("Format token autentikasi tidak valid"));
+        }
+    }
+
+    @Test
+    @DisplayName("Gagal 401: Token tidak ditemukan di Database (Expired/Revoked)")
+    void testTokenNotFoundInDB() throws Exception {
+        String token = "valid.jwt.token";
+        UUID userId = UUID.randomUUID();
+
+        when(request.getRequestURI()).thenReturn("/api/users");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        setupResponseWriter();
+
+        try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
+            mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
+            mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
+
+            // Mock Service return null (token tidak ada di DB)
             when(authTokenService.findUserToken(userId, token)).thenReturn(null);
 
             boolean result = authInterceptor.preHandle(request, response, new Object());
@@ -123,40 +179,69 @@ class AuthInterceptorTest {
         }
     }
 
-    // --- CASE 5: SUCCESS ---
     @Test
-    @DisplayName("Harus SUKSES (return true) dan set AuthContext jika semua valid")
-    void testSuccess() throws Exception {
+    @DisplayName("Gagal 404: User tidak ditemukan di Database")
+    void testUserNotFoundInDB() throws Exception {
+        String token = "valid.jwt.token";
         UUID userId = UUID.randomUUID();
-        String token = "valid-jwt";
+        AuthToken authToken = new AuthToken();
+        authToken.setUserId(userId);
 
-        // Siapkan Mock Data
-        User mockUser = new User();
-        mockUser.setId(userId);
-        
-        AuthToken mockAuthToken = new AuthToken();
-        mockAuthToken.setUserId(userId);
-
-        // Siapkan Request
-        when(request.getRequestURI()).thenReturn("/api/users/me");
+        when(request.getRequestURI()).thenReturn("/api/users");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        setupResponseWriter();
 
-        try (MockedStatic<JwtUtil> jwtUtilMock = mockStatic(JwtUtil.class)) {
-            // Mock Static Utils
-            jwtUtilMock.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
-            jwtUtilMock.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
+        try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
+            mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
+            mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
 
-            // Mock Services
-            when(authTokenService.findUserToken(userId, token)).thenReturn(mockAuthToken);
-            when(userService.getUserById(userId)).thenReturn(mockUser);
+            // Mock Token ditemukan
+            when(authTokenService.findUserToken(userId, token)).thenReturn(authToken);
+            // Mock User TIDAK ditemukan
+            when(userService.getUserById(userId)).thenReturn(null);
 
-            // EKSEKUSI
             boolean result = authInterceptor.preHandle(request, response, new Object());
 
-            // ASSERT
-            assertTrue(result); // Harus true agar lanjut ke Controller
-            verify(authContext).setAuthUser(mockUser); // Pastikan user disimpan di context
-            verify(response, never()).setStatus(401); // Pastikan tidak ada error 401
+            assertFalse(result);
+            verify(response).setStatus(404);
+            assertTrue(responseWriter.toString().contains("User tidak ditemukan"));
+        }
+    }
+
+    // --- TEST CASE 4: HAPPY PATH ---
+
+    @Test
+    @DisplayName("Sukses: Token valid, User valid -> Set AuthContext")
+    void testHappyPath() throws Exception {
+        String token = "valid.jwt.token";
+        UUID userId = UUID.randomUUID();
+        
+        AuthToken authToken = new AuthToken();
+        authToken.setUserId(userId);
+        
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("test@delcom.org");
+
+        when(request.getRequestURI()).thenReturn("/api/users/profile");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+
+        // Tidak perlu setupResponseWriter karena sukses tidak menulis response error
+
+        try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
+            mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
+            mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
+
+            when(authTokenService.findUserToken(userId, token)).thenReturn(authToken);
+            when(userService.getUserById(userId)).thenReturn(user);
+
+            boolean result = authInterceptor.preHandle(request, response, new Object());
+
+            // Assertions
+            assertTrue(result, "Harus mengembalikan true agar request dilanjutkan ke Controller");
+            
+            // Verifikasi bahwa user diset ke context
+            verify(authContext).setAuthUser(user);
         }
     }
 }

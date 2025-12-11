@@ -1,6 +1,7 @@
 package org.delcom.app.services;
 
-import java.util.UUID;
+import java.util.Objects;
+import java.util.UUID; // ✅ Tambahan Import
 
 import org.delcom.app.entities.User;
 import org.delcom.app.repositories.UserRepository;
@@ -26,12 +27,14 @@ public class UserService {
     }
 
     public User getUserById(UUID id) {
-        return userRepository.findById(id).orElse(null);
+        // ✅ Fix: Membungkus id dengan Objects.requireNonNull
+        return userRepository.findById(Objects.requireNonNull(id)).orElse(null);
     }
 
     @Transactional
     public User updateUser(UUID id, String name, String email) {
-        User user = userRepository.findById(id).orElse(null);
+        // ✅ Fix: Membungkus id dengan Objects.requireNonNull
+        User user = userRepository.findById(Objects.requireNonNull(id)).orElse(null);
         if (user == null) {
             return null;
         }
@@ -42,12 +45,12 @@ public class UserService {
 
     @Transactional
     public User updatePassword(UUID id, String newPassword) {
-        User user = userRepository.findById(id).orElse(null);
+        // ✅ Fix: Membungkus id dengan Objects.requireNonNull
+        User user = userRepository.findById(Objects.requireNonNull(id)).orElse(null);
         if (user == null) {
             return null;
         }
         user.setPassword(newPassword);
         return userRepository.save(user);
     }
-
 }

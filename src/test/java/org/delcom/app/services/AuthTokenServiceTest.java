@@ -1,18 +1,22 @@
 package org.delcom.app.services;
 
+import java.util.UUID;
+
 import org.delcom.app.entities.AuthToken;
 import org.delcom.app.repositories.AuthTokenRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthTokenServiceTest {
@@ -23,55 +27,99 @@ class AuthTokenServiceTest {
     @InjectMocks
     private AuthTokenService authTokenService;
 
+    // ==========================================
+    // Test untuk: findUserToken
+    // ==========================================
+
     @Test
-    @DisplayName("Create AuthToken: Harus menyimpan data ke repository")
-    void testCreateAuthToken() {
-        // 1. ARRANGE
+    @DisplayName("findUserToken: Harus memanggil repository saat userId tidak null")
+    void testFindUserToken_Success() {
+        // Arrange
         UUID userId = UUID.randomUUID();
-        AuthToken token = new AuthToken(userId, "token-baru-123");
-
-        // Mock: Jika save dipanggil, kembalikan objek token itu sendiri
-        when(authTokenRepository.save(token)).thenReturn(token);
-
-        // 2. ACT
-        AuthToken createdToken = authTokenService.createAuthToken(token);
-
-        // 3. ASSERT
-        assertNotNull(createdToken);
-        assertEquals(userId, createdToken.getUserId());
+        String tokenString = "sample-token-string";
+        AuthToken mockToken = new AuthToken(); 
+        // Set properti mockToken jika perlu, misal mockToken.setToken(tokenString);
         
-        // Verifikasi repository dipanggil 1 kali
-        verify(authTokenRepository, times(1)).save(token);
-    }
+        when(authTokenRepository.findUserToken(userId, tokenString)).thenReturn(mockToken);
 
-    @Test
-    @DisplayName("Find User Token: Harus mengembalikan token jika ditemukan")
-    void testFindUserToken() {
-        // 1. ARRANGE
-        UUID userId = UUID.randomUUID();
-        String tokenString = "jwt-valid";
-        AuthToken existingToken = new AuthToken(userId, tokenString);
-
-        when(authTokenRepository.findUserToken(userId, tokenString)).thenReturn(existingToken);
-
-        // 2. ACT
+        // Act
         AuthToken result = authTokenService.findUserToken(userId, tokenString);
 
-        // 3. ASSERT
+        // Assert
         assertNotNull(result);
-        assertEquals(tokenString, result.getToken());
+        assertEquals(mockToken, result);
+        verify(authTokenRepository, times(1)).findUserToken(userId, tokenString);
     }
 
     @Test
-    @DisplayName("Delete AuthToken: Harus memanggil delete di repository")
-    void testDeleteAuthToken() {
-        // 1. ARRANGE
+    @DisplayName("findUserToken: Harus melempar NullPointerException jika userId null")
+    void testFindUserToken_NullUserId() {
+        // Act & Assert
+        assertThrows(NullPointerException.class, () -> {
+            authTokenService.findUserToken(null, "some-token");
+        });
+
+        // Verifikasi bahwa repository TIDAK dipanggil karena gagal di requireNonNull
+        verifyNoInteractions(authTokenRepository);
+    }
+
+    // ==========================================
+    // Test untuk: createAuthToken
+    // ==========================================
+
+    @Test
+    @DisplayName("createAuthToken: Harus menyimpan token saat object tidak null")
+    void testCreateAuthToken_Success() {
+        // Arrange
+        AuthToken tokenToSave = new AuthToken();
+        AuthToken savedToken = new AuthToken();
+        
+        when(authTokenRepository.save(tokenToSave)).thenReturn(savedToken);
+
+        // Act
+        AuthToken result = authTokenService.createAuthToken(tokenToSave);
+
+        // Assert
+        assertNotNull(result);
+        verify(authTokenRepository, times(1)).save(tokenToSave);
+    }
+
+    @Test
+    @DisplayName("createAuthToken: Harus melempar NullPointerException jika object null")
+    void testCreateAuthToken_NullObject() {
+        // Act & Assert
+        assertThrows(NullPointerException.class, () -> {
+            authTokenService.createAuthToken(null);
+        });
+
+        verifyNoInteractions(authTokenRepository);
+    }
+
+    // ==========================================
+    // Test untuk: deleteAuthToken
+    // ==========================================
+
+    @Test
+    @DisplayName("deleteAuthToken: Harus menghapus token saat userId tidak null")
+    void testDeleteAuthToken_Success() {
+        // Arrange
         UUID userId = UUID.randomUUID();
 
-        // 2. ACT
+        // Act
         authTokenService.deleteAuthToken(userId);
 
-        // 3. ASSERT
+        // Assert
         verify(authTokenRepository, times(1)).deleteByUserId(userId);
+    }
+
+    @Test
+    @DisplayName("deleteAuthToken: Harus melempar NullPointerException jika userId null")
+    void testDeleteAuthToken_NullUserId() {
+        // Act & Assert
+        assertThrows(NullPointerException.class, () -> {
+            authTokenService.deleteAuthToken(null);
+        });
+
+        verifyNoInteractions(authTokenRepository);
     }
 }
