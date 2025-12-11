@@ -140,12 +140,11 @@
                 </configuration>
             </plugin>
 
-            <!-- Surefire Plugin (DITAMBAHKAN KONFIGURASI PENTING) -->
+            <!-- Surefire Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version> <!-- Gunakan versi terbaru -->
-
+                <version>3.5.2</version>
             </plugin>
 
             <!-- JaCoCo -->
@@ -154,13 +153,14 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.14</version>
                 <configuration>
-                    <!-- BAGIAN INI UNTUK MENGHILANGKAN FOLDER DARI LAPORAN -->
+                    <!-- EXCLUDES: FILE YANG TIDAK AKAN DIHITUNG COVERAGENYA -->
                     <excludes>
-                        <!-- Polanya: folder/subfolder/package/** -->
+                        <exclude>org/delcom/app/Application.class</exclude>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/configs/**</exclude>
                         <exclude>org/delcom/app/utils/**</exclude>
                         <exclude>org/delcom/app/views/**</exclude>
-                        <!-- Opsional: Hilangkan DTO juga jika mau -->
-                        <exclude>org/delcom/app/dto/**</exclude> 
+                        <exclude>org/delcom/app/entities/**</exclude> 
                     </excludes>
                 </configuration>
                 <executions>
@@ -175,6 +175,34 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                    </execution>
+                    <!-- EXECUTION CHECK: INI YANG DITAMBAHKAN AGAR BUILD LULUS -->
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <!-- Batas minimal Coverage Baris Code (90%) -->
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                        <!-- Batas minimal Coverage Percabangan IF/ELSE (80%) -->
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
