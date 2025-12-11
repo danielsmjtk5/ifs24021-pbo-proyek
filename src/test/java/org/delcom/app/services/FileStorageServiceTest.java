@@ -1,5 +1,6 @@
 package org.delcom.app.services;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,85 +13,94 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 class FileStorageServiceTest {
 
     private FileStorageService fileService;
 
-    // JUnit 5 akan membuatkan folder sementara yang otomatis dihapus setelah test selesai
     @TempDir
     Path tempDir;
 
     @BeforeEach
     void setUp() {
         fileService = new FileStorageService();
-        // Kita suntikkan path folder sementara ke variable 'uploadDir' milik service
-        // Ini menggantikan fungsi @Value("${app.upload.dir}")
         ReflectionTestUtils.setField(fileService, "uploadDir", tempDir.toString());
     }
 
     // ==========================================
-    // 1. TEST STORE FILE (Normal & No Extension)
+    // 1. TEST STORE FILE (Fokus Coverage)
     // ==========================================
 
     @Test
-    @DisplayName("Store File: Success with Extension")
+    @DisplayName("Store File: Normal (Ada Ekstensi) -> Masuk blok IF")
     void testStoreFile_WithExtension() throws IOException {
-        // Setup
         UUID id = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile(
-                "photo", "avatar.png", "image/png", "dummy-content".getBytes());
+                "photo", "avatar.png", "image/png", "content".getBytes());
 
-        // Act
-        String resultFilename = fileService.storeFile(file, id);
+        String result = fileService.storeFile(file, id);
 
-        // Assert
-        // Harusnya: cover_UUID.png
-        String expectedFilename = "cover_" + id.toString() + ".png";
-        assertEquals(expectedFilename, resultFilename);
-
-        // Cek apakah file benar-benar ada di disk (di folder temp)
-        Path savedPath = tempDir.resolve(resultFilename);
-        assertTrue(Files.exists(savedPath));
+        assertEquals("cover_" + id + ".png", result);
+        assertTrue(Files.exists(tempDir.resolve(result)));
     }
 
     @Test
-    @DisplayName("Store File: Success without Extension")
+    @DisplayName("Store File: Tanpa Ekstensi -> Tidak masuk blok IF (Kanan False)")
     void testStoreFile_NoExtension() throws IOException {
-        // Setup (Nama file tidak ada titiknya)
         UUID id = UUID.randomUUID();
+        // "avatar" tidak punya titik
         MockMultipartFile file = new MockMultipartFile(
-                "photo", "avatar", "image/png", "dummy-content".getBytes());
+                "photo", "avatar", "image/png", "content".getBytes());
 
-        // Act
-        String resultFilename = fileService.storeFile(file, id);
+        String result = fileService.storeFile(file, id);
 
-        // Assert
-        // Harusnya: cover_UUID (tanpa ekstensi)
-        String expectedFilename = "cover_" + id.toString();
-        assertEquals(expectedFilename, resultFilename);
-        assertTrue(Files.exists(tempDir.resolve(resultFilename)));
+        // Ekstensi kosong
+        assertEquals("cover_" + id, result);
+        assertTrue(Files.exists(tempDir.resolve(result)));
     }
 
     @Test
-    @DisplayName("Store File: Creates Directory if not exists")
-    void testStoreFile_CreatesDirectory() throws IOException {
-        // Setup: Kita arahkan uploadDir ke subfolder yang BELUM ada
-        Path nonExistentSubDir = tempDir.resolve("sub-uploads");
-        ReflectionTestUtils.setField(fileService, "uploadDir", nonExistentSubDir.toString());
-
+    @DisplayName("Store File: Filename NULL -> Tidak masuk blok IF (Kiri False)")
+    void testStoreFile_NullFilename() throws IOException {
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // Kita TIDAK BISA pakai MockMultipartFile karena dia mengubah null jadi ""
+        // Kita harus pakai Mockito untuk memaksa return null asli.
+        
         UUID id = UUID.randomUUID();
-        MockMultipartFile file = new MockMultipartFile("photo", "test.txt", "text/plain", "content".getBytes());
+        MultipartFile mockFile = mock(MultipartFile.class);
+        
+        // Paksa return null
+        when(mockFile.getOriginalFilename()).thenReturn(null);
+        // Mock getInputStream supaya tidak Error NullPointerException saat copy
+        when(mockFile.getInputStream()).thenReturn(new ByteArrayInputStream("dummy".getBytes()));
 
         // Act
-        // Service harus membuat folder 'sub-uploads' dulu, baru simpan file
+        String result = fileService.storeFile(mockFile, id);
+
+        // Assert
+        // Karena null, ekstensi defaultnya "" (kosong)
+        assertEquals("cover_" + id, result);
+        assertTrue(Files.exists(tempDir.resolve(result)));
+    }
+
+    @Test
+    @DisplayName("Store File: Auto Create Directory")
+    void testStoreFile_CreatesDirectory() throws IOException {
+        Path subDir = tempDir.resolve("new-folder");
+        ReflectionTestUtils.setField(fileService, "uploadDir", subDir.toString());
+
+        UUID id = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("photo", "t.txt", "text/plain", "b".getBytes());
+
         fileService.storeFile(file, id);
 
-        // Assert
-        assertTrue(Files.exists(nonExistentSubDir), "Directory harusnya dibuat otomatis");
-        assertTrue(Files.exists(nonExistentSubDir.resolve("cover_" + id + ".txt")));
+        assertTrue(Files.exists(subDir));
+        assertTrue(Files.exists(subDir.resolve("cover_" + id + ".txt")));
     }
 
     // ==========================================
@@ -99,68 +109,41 @@ class FileStorageServiceTest {
 
     @Test
     void testLoadAndFileExists() throws IOException {
-        String filename = "test-load.txt";
-        Path filePath = tempDir.resolve(filename);
-        Files.createFile(filePath);
+        String filename = "data.txt";
+        Files.createFile(tempDir.resolve(filename));
 
-        // Test loadFile
-        Path loadedPath = fileService.loadFile(filename);
-        assertEquals(filePath.toAbsolutePath().toString(), loadedPath.toAbsolutePath().toString());
+        Path path = fileService.loadFile(filename);
+        assertEquals(tempDir.resolve(filename).toAbsolutePath().toString(), path.toAbsolutePath().toString());
 
-        // Test fileExists (True)
         assertTrue(fileService.fileExists(filename));
-
-        // Test fileExists (False)
-        assertFalse(fileService.fileExists("ghost-file.txt"));
+        assertFalse(fileService.fileExists("missing.txt"));
     }
 
     // ==========================================
-    // 3. TEST DELETE FILE (Success & IOException)
+    // 3. TEST DELETE FILE
     // ==========================================
 
     @Test
-    @DisplayName("Delete File: Success")
     void testDeleteFile_Success() throws IOException {
-        String filename = "to-delete.txt";
+        String filename = "del.txt";
         Files.createFile(tempDir.resolve(filename));
 
-        // Act
-        boolean result = fileService.deleteFile(filename);
-
-        // Assert
-        assertTrue(result);
+        assertTrue(fileService.deleteFile(filename));
         assertFalse(Files.exists(tempDir.resolve(filename)));
     }
 
     @Test
-    @DisplayName("Delete File: Returns False if not exists")
     void testDeleteFile_NotFound() {
-        boolean result = fileService.deleteFile("ghost.txt");
-        assertFalse(result); // Files.deleteIfExists return false jika file ga ada
+        assertFalse(fileService.deleteFile("ghost.txt"));
     }
 
     @Test
-    @DisplayName("Delete File: IOException Catch Block")
     void testDeleteFile_IOException() throws IOException {
-        // TRICKY PART: Bagaimana memicu IOException saat delete?
-        // Cara paling ampuh: Buat sebuah DIRECTORY dengan nama target, 
-        // lalu isi direktori itu. 'Files.deleteIfExists' akan gagal menghapus
-        // direktori yang tidak kosong dan melempar DirectoryNotEmptyException (turunan IOException).
-        
-        String folderName = "protected-folder";
-        Path folderPath = tempDir.resolve(folderName);
-        Files.createDirectory(folderPath);
-        
-        // Isi folder agar tidak bisa dihapus dengan deleteIfExists biasa
-        Files.createFile(folderPath.resolve("child.txt")); 
+        String folderName = "protected";
+        Path p = tempDir.resolve(folderName);
+        Files.createDirectory(p);
+        Files.createFile(p.resolve("child.txt")); 
 
-        // Act
-        // Kita minta service menghapus "protected-folder". 
-        // Karena itu folder berisi file, Java akan melempar Exception.
-        // Blok catch (IOException e) di service akan menangkapnya dan return false.
-        boolean result = fileService.deleteFile(folderName);
-
-        // Assert
-        assertFalse(result, "Harusnya return false karena terjadi IOException");
+        assertFalse(fileService.deleteFile(folderName));
     }
 }

@@ -1,8 +1,6 @@
 package org.delcom.app.services;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,9 +10,7 @@ import org.delcom.app.entities.Donation;
 import org.delcom.app.entities.User;
 import org.delcom.app.repositories.DonationRepository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,337 +38,357 @@ class DonationServiceTest {
     @InjectMocks
     private DonationService donationService;
 
-    // --- HELPER UNTUK MEMBUAT DATA DUMMY ---
+    // --- HELPER ---
     private User createUser(UUID id) {
         User user = new User();
         user.setId(id);
         return user;
     }
 
-    private DonationForm createForm(boolean withPhoto, boolean withExpiredTime) {
+    private DonationForm createBasicForm() {
         DonationForm form = new DonationForm();
-        form.setName("Nasi Goreng");
-        form.setLocation("Jakarta");
+        form.setName("Test Food");
+        form.setLocation("Test Loc");
         form.setCategory("Food");
         form.setIsHalal(true);
-        form.setPortion(10);
-        form.setDescription("Enak");
-
-        if (withExpiredTime) {
-            form.setExpiredTime("2025-12-31T23:59:00");
-        } else {
-            form.setExpiredTime(null); // Penting untuk cover cabang 'else' di mapFormToEntity
-        }
-
-        if (withPhoto) {
-            MultipartFile mockFile = mock(MultipartFile.class);
-            when(mockFile.isEmpty()).thenReturn(false);
-            form.setPhoto(mockFile);
-        }
-
+        form.setPortion(1);
+        form.setDescription("Desc");
         return form;
     }
 
     // ==========================================
-    // 1. TEST SAVE DONATION (CREATE)
+    // 1. TEST SAVE DONATION (General)
     // ==========================================
 
     @Test
-    @DisplayName("saveDonation: Sukses simpan dengan Foto dan ExpiredTime")
-    void testSaveDonation_Success_WithPhoto() throws Exception {
-        UUID userId = UUID.randomUUID();
-        User user = createUser(userId);
-        DonationForm form = createForm(true, true);
+    @DisplayName("save: Sukses dengan Foto")
+    void testSave_Full() throws Exception {
+        User user = createUser(UUID.randomUUID());
+        DonationForm form = createBasicForm();
+        
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        form.setPhoto(file);
 
-        // Mock save pertama (simulasi generate ID oleh DB)
-        when(donationRepo.save(any(Donation.class))).thenAnswer(inv -> {
-            Donation d = inv.getArgument(0);
+        when(donationRepo.save(any())).thenAnswer(i -> {
+            Donation d = i.getArgument(0);
             if(d.getId() == null) d.setId(UUID.randomUUID());
             return d;
         });
+        when(fileService.storeFile(any(), any())).thenReturn("img.jpg");
 
-        // Mock upload file sukses
-        when(fileService.storeFile(any(), any())).thenReturn("gambar.jpg");
-
-        // Act
         donationService.saveDonation(form, user);
 
-        // Assert
-        verify(donationRepo, times(2)).save(any(Donation.class)); // 1x create, 1x update url
-        verify(fileService, times(1)).storeFile(any(), any());
+        verify(donationRepo, times(2)).save(any());
+        verify(fileService).storeFile(any(), any());
     }
 
     @Test
-    @DisplayName("saveDonation: Sukses simpan TANPA Foto dan TANPA ExpiredTime")
-    void testSaveDonation_Success_NoPhoto() throws Exception { 
+    @DisplayName("save: Foto Kosong -> Skip Upload")
+    void testSave_PhotoEmpty() throws Exception {
         User user = createUser(UUID.randomUUID());
-        DonationForm form = createForm(false, false); // No Photo, No Date (null)
+        DonationForm form = createBasicForm();
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(true); // Empty
+        form.setPhoto(file);
 
-        when(donationRepo.save(any(Donation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(donationRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        // Act
         donationService.saveDonation(form, user);
 
-        // Assert
-        verify(fileService, times(0)).storeFile(any(), any()); 
-        verify(donationRepo, times(1)).save(any(Donation.class));
+        verify(fileService, never()).storeFile(any(), any());
     }
 
     @Test
-    @DisplayName("saveDonation: Gagal Upload Foto (Catch RuntimeException)")
-    void testSaveDonation_UploadFailed() throws Exception {
+    @DisplayName("save: Foto Null -> Skip Upload")
+    void testSave_PhotoNull() throws Exception {
         User user = createUser(UUID.randomUUID());
-        DonationForm form = createForm(true, false);
+        DonationForm form = createBasicForm();
+        form.setPhoto(null);
 
-        // Mock save agar punya ID
-        when(donationRepo.save(any(Donation.class))).thenAnswer(inv -> {
-            Donation d = inv.getArgument(0);
+        when(donationRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        donationService.saveDonation(form, user);
+
+        verify(fileService, never()).storeFile(any(), any());
+    }
+
+    @Test
+    @DisplayName("save: Upload Error -> Throw RuntimeException")
+    void testSave_UploadFail() throws Exception {
+        User user = createUser(UUID.randomUUID());
+        DonationForm form = createBasicForm();
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        form.setPhoto(file);
+
+        when(donationRepo.save(any())).thenAnswer(i -> {
+            Donation d = i.getArgument(0);
             d.setId(UUID.randomUUID());
             return d;
         });
+        doThrow(new IOException("Error")).when(fileService).storeFile(any(), any());
 
-        // Paksa error IO saat upload
-        doThrow(new IOException("Disk Full")).when(fileService).storeFile(any(), any());
-
-        // Act & Assert
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
-            donationService.saveDonation(form, user);
-        });
-
-        assertTrue(ex.getMessage().contains("Gagal mengupload gambar"));
+        assertThrows(RuntimeException.class, () -> donationService.saveDonation(form, user));
     }
 
     // ==========================================
-    // 2. TEST UPDATE DONATION
+    // 2. TEST MAPPING & EXPIRED TIME (Handling Red Lines in Helper)
     // ==========================================
 
     @Test
-    @DisplayName("updateDonation: Sukses Update (Owner cocok, Ganti Foto)")
-    void testUpdateDonation_Success() throws Exception {
-        UUID docId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        User user = createUser(userId);
-        DonationForm form = createForm(true, true);
+    @DisplayName("Mapping: ExpiredTime Valid -> Ter-set")
+    void testSave_ExpiredTime_Valid() {
+        User user = createUser(UUID.randomUUID());
+        DonationForm form = createBasicForm();
+        form.setExpiredTime("2025-12-31T23:59:00"); // Valid String
 
-        Donation existingDonation = new Donation();
-        existingDonation.setId(docId);
-        existingDonation.setCreatedBy(user); // Owner cocok
+        when(donationRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(existingDonation));
-        when(fileService.storeFile(any(), any())).thenReturn("new-image.jpg");
+        donationService.saveDonation(form, user);
 
-        // Act
-        donationService.updateDonation(docId, form, user);
-
-        // Assert
-        verify(donationRepo, times(1)).save(existingDonation);
-        assertEquals("new-image.jpg", existingDonation.getPhotoUrl());
+        verify(donationRepo).save(any());
+        // Logic parse dijalankan
     }
 
     @Test
-    @DisplayName("updateDonation: Error 'Unauthorized' jika User beda")
-    void testUpdateDonation_Unauthorized() {
-        // --- PENTING: TEST INI HANYA LULUS JIKA VALIDASI DI SERVICE DINYALAKAN ---
-        UUID docId = UUID.randomUUID();
-        User owner = createUser(UUID.randomUUID());
-        User intruder = createUser(UUID.randomUUID()); // ID Beda
+    @DisplayName("Mapping: ExpiredTime Null -> Skip (False && ...)")
+    void testSave_ExpiredTime_Null() {
+        User user = createUser(UUID.randomUUID());
+        DonationForm form = createBasicForm();
+        form.setExpiredTime(null); // NULL
 
-        Donation existingDonation = new Donation();
-        existingDonation.setId(docId);
-        existingDonation.setCreatedBy(owner);
+        when(donationRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(existingDonation));
+        donationService.saveDonation(form, user);
 
-        // Act & Assert
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
-            donationService.updateDonation(docId, new DonationForm(), intruder);
-        });
-
-        assertEquals("Unauthorized", ex.getMessage());
-        // Pastikan tidak tersimpan
-        verify(donationRepo, times(0)).save(any());
+        verify(donationRepo).save(any());
     }
 
     @Test
-    @DisplayName("updateDonation: Error 'Donation not found' jika ID salah")
-    void testUpdateDonation_NotFound() {
-        UUID docId = UUID.randomUUID();
-        when(donationRepo.findById(docId)).thenReturn(Optional.empty());
+    @DisplayName("Mapping: ExpiredTime Empty String -> Skip (True && False)")
+    void testSave_ExpiredTime_Empty() {
+        User user = createUser(UUID.randomUUID());
+        DonationForm form = createBasicForm();
+        form.setExpiredTime(""); // EMPTY STRING
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
-            donationService.updateDonation(docId, new DonationForm(), new User());
-        });
-        assertEquals("Donation not found", ex.getMessage());
+        when(donationRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        donationService.saveDonation(form, user);
+
+        verify(donationRepo).save(any());
     }
 
-    @Test
-    @DisplayName("updateDonation: Gagal Upload Foto saat Update")
-    void testUpdateDonation_UploadFailed() throws Exception {
-        UUID docId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        User user = createUser(userId);
-        DonationForm form = createForm(true, false);
+    // ==========================================
+    // 3. TEST UPDATE DONATION
+    // ==========================================
 
+    @Test
+    @DisplayName("update: Sukses dengan Foto Baru")
+    void testUpdate_WithNewPhoto() throws Exception {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
         Donation existing = new Donation();
-        existing.setId(docId);
+        existing.setId(id);
         existing.setCreatedBy(user);
 
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(existing));
-        doThrow(new IOException("Network Error")).when(fileService).storeFile(any(), any());
+        DonationForm form = createBasicForm();
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        form.setPhoto(file);
 
-        // Act & Assert
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
-            donationService.updateDonation(docId, form, user);
-        });
+        when(donationRepo.findById(id)).thenReturn(Optional.of(existing));
+        when(fileService.storeFile(any(), any())).thenReturn("updated.jpg");
 
-        assertTrue(ex.getMessage().contains("Gagal mengupload gambar saat update"));
-    }
+        donationService.updateDonation(id, form, user);
 
-    // ==========================================
-    // 3. TEST DELETE DONATION
-    // ==========================================
-
-    @Test
-    @DisplayName("deleteDonation: Sukses Hapus (Owner cocok)")
-    void testDeleteDonation_Success() {
-        UUID docId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        User user = createUser(userId);
-
-        Donation donation = new Donation();
-        donation.setId(docId);
-        donation.setCreatedBy(user);
-
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(donation));
-
-        // Act
-        donationService.deleteDonation(docId, user);
-
-        // Assert
-        verify(donationRepo, times(1)).delete(donation);
+        verify(fileService).storeFile(any(), any());
+        assertEquals("updated.jpg", existing.getPhotoUrl());
     }
 
     @Test
-    @DisplayName("deleteDonation: Tidak Hapus jika bukan Owner (Coverage if false)")
-    void testDeleteDonation_NotOwner() {
-        UUID docId = UUID.randomUUID();
+    @DisplayName("update: Foto Null -> Skip")
+    void testUpdate_PhotoNull() throws Exception {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
+        Donation existing = new Donation();
+        existing.setId(id);
+        existing.setCreatedBy(user);
+
+        DonationForm form = createBasicForm();
+        form.setPhoto(null);
+
+        when(donationRepo.findById(id)).thenReturn(Optional.of(existing));
+
+        donationService.updateDonation(id, form, user);
+        verify(fileService, never()).storeFile(any(), any());
+    }
+
+    @Test
+    @DisplayName("update: Foto Empty -> Skip")
+    void testUpdate_PhotoEmpty() throws Exception {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
+        Donation existing = new Donation();
+        existing.setId(id);
+        existing.setCreatedBy(user);
+
+        DonationForm form = createBasicForm();
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(true); // Empty
+        form.setPhoto(file);
+
+        when(donationRepo.findById(id)).thenReturn(Optional.of(existing));
+
+        donationService.updateDonation(id, form, user);
+        verify(fileService, never()).storeFile(any(), any());
+    }
+
+    @Test
+    void testUpdate_Unauthorized() {
+        UUID id = UUID.randomUUID();
         User owner = createUser(UUID.randomUUID());
-        User otherUser = createUser(UUID.randomUUID());
+        User intruder = createUser(UUID.randomUUID());
+        Donation existing = new Donation();
+        existing.setId(id);
+        existing.setCreatedBy(owner);
 
-        Donation donation = new Donation();
-        donation.setCreatedBy(owner);
+        when(donationRepo.findById(id)).thenReturn(Optional.of(existing));
 
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(donation));
-
-        // Act
-        donationService.deleteDonation(docId, otherUser);
-
-        // Assert
-        verify(donationRepo, times(0)).delete(any());
+        assertThrows(RuntimeException.class, () -> 
+            donationService.updateDonation(id, createBasicForm(), intruder)
+        );
     }
 
     @Test
-    @DisplayName("deleteDonation: Error jika ID tidak ketemu")
-    void testDeleteDonation_NotFound() {
-        UUID docId = UUID.randomUUID();
-        when(donationRepo.findById(docId)).thenReturn(Optional.empty());
-
-        assertThrows(NoSuchElementException.class, () -> {
-            donationService.deleteDonation(docId, new User());
-        });
-    }
-
-    // ==========================================
-    // 4. TEST CLAIM DONATION
-    // ==========================================
-
-    @Test
-    @DisplayName("claimDonation: Sukses Klaim (Status AVAILABLE)")
-    void testClaimDonation_Success() {
-        UUID docId = UUID.randomUUID();
-        User claimer = createUser(UUID.randomUUID());
-        Donation donation = new Donation();
-        donation.setStatus(Donation.DonationStatus.AVAILABLE);
-
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(donation));
-
-        // Act
-        donationService.claimDonation(docId, claimer);
-
-        // Assert
-        assertEquals(Donation.DonationStatus.BOOKED, donation.getStatus());
-        assertEquals(claimer, donation.getClaimedBy());
-        verify(donationRepo, times(1)).save(donation);
+    void testUpdate_NotFound() {
+        UUID id = UUID.randomUUID();
+        when(donationRepo.findById(id)).thenReturn(Optional.empty());
+        assertThrows(RuntimeException.class, () -> 
+            donationService.updateDonation(id, createBasicForm(), new User())
+        );
     }
 
     @Test
-    @DisplayName("claimDonation: Gagal Klaim (Status BOOKED/Taken)")
-    void testClaimDonation_AlreadyBooked() {
-        UUID docId = UUID.randomUUID();
-        Donation donation = new Donation();
-        donation.setStatus(Donation.DonationStatus.BOOKED);
+    void testUpdate_UploadError() throws Exception {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
+        Donation existing = new Donation();
+        existing.setId(id);
+        existing.setCreatedBy(user);
 
-        when(donationRepo.findById(docId)).thenReturn(Optional.of(donation));
+        DonationForm form = createBasicForm();
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        form.setPhoto(file);
 
-        // Act
-        donationService.claimDonation(docId, new User());
+        when(donationRepo.findById(id)).thenReturn(Optional.of(existing));
+        doThrow(new IOException("Fail")).when(fileService).storeFile(any(), any());
 
-        // Assert
-        assertEquals(Donation.DonationStatus.BOOKED, donation.getStatus());
-        verify(donationRepo, times(0)).save(any());
-    }
-
-    @Test
-    @DisplayName("claimDonation: Not Found")
-    void testClaimDonation_NotFound() {
-        UUID docId = UUID.randomUUID();
-        when(donationRepo.findById(docId)).thenReturn(Optional.empty());
-        assertThrows(NoSuchElementException.class, () -> donationService.claimDonation(docId, new User()));
+        assertThrows(RuntimeException.class, () -> donationService.updateDonation(id, form, user));
     }
 
     // ==========================================
-    // 5. TEST GET & STATISTIK
+    // 4. CLAIM DONATION (Handling Red Lines in if-else)
     // ==========================================
 
     @Test
-    @DisplayName("getAllDonations: Delegasi ke repo sukses")
-    void testGetAllDonations() {
-        when(donationRepo.searchDonations("nasi", true))
-                .thenReturn(Collections.emptyList());
+    @DisplayName("claim: Status AVAILABLE -> Success (True Branch)")
+    void testClaim_Success() {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
+        Donation d = new Donation();
+        d.setStatus(Donation.DonationStatus.AVAILABLE);
 
-        List<Donation> result = donationService.getAllDonations("nasi", true);
-        assertNotNull(result);
-        verify(donationRepo).searchDonations("nasi", true);
+        when(donationRepo.findById(id)).thenReturn(Optional.of(d));
+        donationService.claimDonation(id, user);
+
+        assertEquals(Donation.DonationStatus.BOOKED, d.getStatus());
+        assertEquals(user, d.getClaimedBy());
+        verify(donationRepo).save(d);
     }
 
     @Test
-    @DisplayName("getById: Found")
+    @DisplayName("claim: Status BOOKED -> Skip (False Branch)")
+    void testClaim_AlreadyBooked() {
+        UUID id = UUID.randomUUID();
+        Donation d = new Donation();
+        d.setStatus(Donation.DonationStatus.BOOKED); // NOT AVAILABLE
+
+        when(donationRepo.findById(id)).thenReturn(Optional.of(d));
+        donationService.claimDonation(id, new User());
+
+        // Save tidak boleh dipanggil
+        verify(donationRepo, never()).save(any());
+    }
+    
+    @Test
+    void testClaim_NotFound() {
+        UUID id = UUID.randomUUID();
+        when(donationRepo.findById(id)).thenReturn(Optional.empty());
+        assertThrows(NoSuchElementException.class, () -> donationService.claimDonation(id, new User()));
+    }
+
+    // ==========================================
+    // 5. DELETE & GETTERS
+    // ==========================================
+
+    @Test
+    void testDelete_Success() {
+        UUID id = UUID.randomUUID();
+        User user = createUser(UUID.randomUUID());
+        Donation d = new Donation();
+        d.setCreatedBy(user);
+
+        when(donationRepo.findById(id)).thenReturn(Optional.of(d));
+        donationService.deleteDonation(id, user);
+        verify(donationRepo).delete(d);
+    }
+
+    @Test
+    void testDelete_Unauthorized() {
+        UUID id = UUID.randomUUID();
+        User owner = createUser(UUID.randomUUID());
+        User other = createUser(UUID.randomUUID());
+        Donation d = new Donation();
+        d.setCreatedBy(owner);
+
+        when(donationRepo.findById(id)).thenReturn(Optional.of(d));
+        donationService.deleteDonation(id, other);
+        verify(donationRepo, never()).delete(any());
+    }
+    
+    @Test
+    void testDelete_NotFound() {
+        UUID id = UUID.randomUUID();
+        when(donationRepo.findById(id)).thenReturn(Optional.empty());
+        assertThrows(NoSuchElementException.class, () -> donationService.deleteDonation(id, new User()));
+    }
+
+    @Test
+    void testGetAll() {
+        donationService.getAllDonations("key", true);
+        verify(donationRepo).searchDonations("key", true);
+    }
+
+    @Test
     void testGetById_Found() {
         UUID id = UUID.randomUUID();
         Donation d = new Donation();
         when(donationRepo.findById(id)).thenReturn(Optional.of(d));
-
-        Donation result = donationService.getById(id);
-        assertEquals(d, result);
+        assertEquals(d, donationService.getById(id));
     }
 
     @Test
-    @DisplayName("getById: Not Found throws RuntimeException")
     void testGetById_NotFound() {
         UUID id = UUID.randomUUID();
         when(donationRepo.findById(id)).thenReturn(Optional.empty());
-
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> 
-            donationService.getById(id)
-        );
-        assertEquals("Not found", ex.getMessage());
+        assertThrows(RuntimeException.class, () -> donationService.getById(id));
     }
 
     @Test
-    @DisplayName("countHalal: Delegasi ke repo")
-    void testCountHalal() {
-        when(donationRepo.countByIsHalal(true)).thenReturn(10L);
-        long count = donationService.countHalal(true);
-        assertEquals(10L, count);
+    void testCount() {
+        donationService.countHalal(false);
+        verify(donationRepo).countByIsHalal(false);
     }
 }

@@ -107,7 +107,25 @@ class AuthInterceptorTest {
         boolean result = authInterceptor.preHandle(request, response, new Object());
 
         // Logika kode Anda: extractToken return null jika tidak startWith Bearer
-        // Akibatnya masuk ke blok "Token autentikasi tidak ditemukan"
+        assertFalse(result);
+        verify(response).setStatus(401);
+        assertTrue(responseWriter.toString().contains("Token autentikasi tidak ditemukan"));
+    }
+
+    @Test
+    @DisplayName("Gagal 401: Header 'Bearer ' tapi tokennya KOSONG")
+    void testTokenEmpty() throws Exception {
+        // --- INI YANG AKAN MEMBUAT BARIS KUNING JADI HIJAU ---
+        // Skenario: Client kirim "Bearer " (ada spasi tapi tanpa token)
+        // extractToken akan mengembalikan string kosong "" (substring dari index 7)
+        // Maka kondisi (token != null) TRUE && (token.isEmpty()) TRUE -> Masuk blok IF
+        
+        when(request.getRequestURI()).thenReturn("/api/users");
+        when(request.getHeader("Authorization")).thenReturn("Bearer "); 
+        setupResponseWriter();
+
+        boolean result = authInterceptor.preHandle(request, response, new Object());
+
         assertFalse(result);
         verify(response).setStatus(401);
         assertTrue(responseWriter.toString().contains("Token autentikasi tidak ditemukan"));
@@ -122,7 +140,6 @@ class AuthInterceptorTest {
         when(request.getHeader("Authorization")).thenReturn("Bearer invalid.token.here");
         setupResponseWriter();
 
-        // Mock Static JwtUtil
         try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
             mockedJwt.when(() -> JwtUtil.validateToken("invalid.token.here", true)).thenReturn(false);
 
@@ -168,7 +185,6 @@ class AuthInterceptorTest {
             mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
             mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
 
-            // Mock Service return null (token tidak ada di DB)
             when(authTokenService.findUserToken(userId, token)).thenReturn(null);
 
             boolean result = authInterceptor.preHandle(request, response, new Object());
@@ -195,9 +211,7 @@ class AuthInterceptorTest {
             mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
             mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
 
-            // Mock Token ditemukan
             when(authTokenService.findUserToken(userId, token)).thenReturn(authToken);
-            // Mock User TIDAK ditemukan
             when(userService.getUserById(userId)).thenReturn(null);
 
             boolean result = authInterceptor.preHandle(request, response, new Object());
@@ -226,8 +240,6 @@ class AuthInterceptorTest {
         when(request.getRequestURI()).thenReturn("/api/users/profile");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
 
-        // Tidak perlu setupResponseWriter karena sukses tidak menulis response error
-
         try (MockedStatic<JwtUtil> mockedJwt = mockStatic(JwtUtil.class)) {
             mockedJwt.when(() -> JwtUtil.validateToken(token, true)).thenReturn(true);
             mockedJwt.when(() -> JwtUtil.extractUserId(token)).thenReturn(userId);
@@ -237,10 +249,7 @@ class AuthInterceptorTest {
 
             boolean result = authInterceptor.preHandle(request, response, new Object());
 
-            // Assertions
-            assertTrue(result, "Harus mengembalikan true agar request dilanjutkan ke Controller");
-            
-            // Verifikasi bahwa user diset ke context
+            assertTrue(result);
             verify(authContext).setAuthUser(user);
         }
     }

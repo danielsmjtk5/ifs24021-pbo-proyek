@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.delcom.app.dto.DonationForm;
 import org.delcom.app.entities.Donation;
 import org.delcom.app.entities.User;
-import org.delcom.app.repositories.DonationRepository; // Opsional jika dibutuhkan
+import org.delcom.app.repositories.DonationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -26,17 +26,17 @@ public class DonationService {
         // 1. Simpan dulu ke database agar ID (UUID) terbentuk
         donation = donationRepo.save(donation);
 
-        // 2. Handle Upload Foto (Sekarang kita punya ID untuk parameter kedua)
+        // 2. Handle Upload Foto
         if (form.getPhoto() != null && !form.getPhoto().isEmpty()) {
             try {
-                // Perbaikan Error 1 & 2: Tambahkan parameter ID dan Try-Catch
+                // Menggunakan ID donasi untuk penamaan file
                 String fileName = fileService.storeFile(form.getPhoto(), donation.getId());
                 donation.setPhotoUrl(fileName);
                 
                 // 3. Simpan ulang (Update) untuk memasukkan nama file
                 donationRepo.save(donation);
             } catch (Exception e) {
-                // Jika upload gagal, kita lempar RuntimeException agar controller tahu
+                // Lempar RuntimeException agar tertangkap oleh Controller/Test
                 throw new RuntimeException("Gagal mengupload gambar: " + e.getMessage());
             }
         }
@@ -47,13 +47,10 @@ public class DonationService {
         Donation donation = donationRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Donation not found"));
         
-        // --- DEBUGGING (Cek di Console siapa ID-nya) ---
-        System.out.println("ID Pemilik Donasi: " + donation.getCreatedBy().getId());
-        System.out.println("ID User Login    : " + user.getId());
-
-        // --- SOLUSI: Matikan validasi ini sementara (Comment dulu) ---
+        // --- VALIDASI KEPEMILIKAN (SECURITY) ---
+        // Test: testUpdateDonation_Unauthorized akan LULUS karena blok ini aktif
         if (!donation.getCreatedBy().getId().equals(user.getId())) {
-        throw new RuntimeException("Unauthorized");
+            throw new RuntimeException("Unauthorized");
         }
 
         mapFormToEntity(form, donation);
@@ -71,23 +68,11 @@ public class DonationService {
         donationRepo.save(donation);
     }
 
-    // --- HELPER MAPPING ---
-    private void mapFormToEntity(DonationForm form, Donation donation) {
-        donation.setName(form.getName());
-        donation.setLocation(form.getLocation());
-        donation.setCategory(form.getCategory());
-        donation.setIsHalal(form.getIsHalal());
-        donation.setPortion(form.getPortion());
-        donation.setDescription(form.getDescription());
-        
-        if (form.getExpiredTime() != null && !form.getExpiredTime().isEmpty()) {
-             donation.setExpiredTime(LocalDateTime.parse(form.getExpiredTime()));
-        }
-    }
-
     // --- DELETE / HAPUS DATA ---
     public void deleteDonation(UUID id, User user) {
         Donation donation = donationRepo.findById(id).orElseThrow();
+        
+        // Hanya pemilik yang bisa menghapus
         if (donation.getCreatedBy().getId().equals(user.getId())) {
             donationRepo.delete(donation);
         }
@@ -115,5 +100,19 @@ public class DonationService {
     // --- STATISTIK ---
     public long countHalal(Boolean isHalal) {
         return donationRepo.countByIsHalal(isHalal);
+    }
+
+    // --- HELPER MAPPING ---
+    private void mapFormToEntity(DonationForm form, Donation donation) {
+        donation.setName(form.getName());
+        donation.setLocation(form.getLocation());
+        donation.setCategory(form.getCategory());
+        donation.setIsHalal(form.getIsHalal());
+        donation.setPortion(form.getPortion());
+        donation.setDescription(form.getDescription());
+        
+        if (form.getExpiredTime() != null && !form.getExpiredTime().isEmpty()) {
+             donation.setExpiredTime(LocalDateTime.parse(form.getExpiredTime()));
+        }
     }
 }
