@@ -25,10 +25,25 @@
         <start-class>org.delcom.app.Application</start-class>
         <jjwt.version>0.12.6</jjwt.version>
         
-        <!-- PAKSA MOCKITO TERBARU AGAR KENAL JAVA 25 -->
         <mockito.version>5.14.2</mockito.version> 
         <byte-buddy.version>1.17.0</byte-buddy.version>
     </properties>
+
+    <!-- PENGATURAN VERSI DI SINI AGAR TIDAK WARNING -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${byte-buddy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${byte-buddy.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- WEB -->
@@ -103,14 +118,14 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- TEST (OVERRIDE UNTUK JAVA 25) -->
+        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
         
-        <!-- Paksa Byte Buddy versi terbaru secara manual -->
+        <!-- Byte Buddy (Versi diambil dari dependencyManagement) -->
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
@@ -120,7 +135,6 @@
             <artifactId>byte-buddy-agent</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -139,31 +153,54 @@
                 </configuration>
             </plugin>
 
-            <!-- Surefire Plugin (DITAMBAHKAN KONFIGURASI PENTING) -->
+            <!-- Surefire Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version> <!-- Gunakan versi terbaru -->
-
+                <version>3.5.2</version>
+                <configuration>
+                    <argLine>@{argLine} --enable-preview -XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
+                </configuration>
             </plugin>
 
-            <!-- JaCoCo -->
+            <!-- JACOCO: CONFIGURATION DI LEVEL PLUGIN -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.14</version>
+                
                 <configuration>
-                    <!-- BAGIAN INI UNTUK MENGHILANGKAN FOLDER DARI LAPORAN -->
                     <excludes>
-                        <!-- Polanya: folder/subfolder/package/** -->
+                        <exclude>org/delcom/app/Application.class</exclude>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/configs/**</exclude>
                         <exclude>org/delcom/app/utils/**</exclude>
                         <exclude>org/delcom/app/views/**</exclude>
-                        <!-- Opsional: Hilangkan DTO juga jika mau -->
-                        <exclude>org/delcom/app/dto/**</exclude> 
+                        <exclude>org/delcom/app/entities/**</exclude> 
                     </excludes>
+                    <!-- Rules diletakkan di sini agar berlaku global -->
+                    <rules>
+                        <rule>
+                            <element>BUNDLE</element>
+                            <limits>
+                                <limit>
+                                    <counter>INSTRUCTION</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.90</minimum>
+                                </limit>
+                                <limit>
+                                    <counter>BRANCH</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.80</minimum>
+                                </limit>
+                            </limits>
+                        </rule>
+                    </rules>
                 </configuration>
+
                 <executions>
                     <execution>
+                        <id>prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
@@ -173,6 +210,13 @@
                         <phase>test</phase>
                         <goals>
                             <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <!-- Execution check wajib ada agar build memvalidasi coverage -->
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
                         </goals>
                     </execution>
                 </executions>
