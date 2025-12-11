@@ -12,7 +12,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- 3. CUSTOM CSS -->
     <style>
         :root {
             --primary-color: #4361ee;
@@ -59,7 +58,7 @@
             border: none;
             box-shadow: none !important;
             font-size: 1rem;
-            padding-left: 10px; /* Adjusted padding */
+            padding-left: 10px;
             font-weight: 500;
         }
         .search-btn {
@@ -89,6 +88,7 @@
             position: relative;
             height: 220px;
             overflow: hidden;
+            background-color: #f1f5f9; /* Warna background loading */
         }
 
         .card-img-top {
@@ -173,13 +173,13 @@
             color: white;
         }
 
-        /* Tombol Disabled (Booked) - Updated Style */
+        /* Tombol Disabled (Booked) */
         .btn-disabled-custom {
             border-radius: 12px;
             background-color: #e9ecef !important;
             color: #6c757d !important;
             font-weight: 600;
-            border: 1px dashed #ced4da; /* Border putus-putus */
+            border: 1px dashed #ced4da;
             padding: 12px;
             pointer-events: none; 
             opacity: 0.8;
@@ -230,7 +230,6 @@
 
     <div class="container py-5">
         <!-- HEADER -->
-        <!-- FIXED: Menggunakan align-items-center agar tombol sejajar tengah dengan teks -->
         <div class="d-flex justify-content-between align-items-center mb-5 flex-wrap gap-3">
            <div class="text-start">
                 <h1 class="display-5 fw-extrabold text-dark mb-2" style="font-weight: 800; letter-spacing: -1px;">
@@ -250,7 +249,6 @@
             <div class="col-lg-12">
                 <form action="/" method="get">
                     <div class="search-container d-flex align-items-center">
-                        <!-- FIXED: Ditambah me-2 agar ada jarak dengan text -->
                         <i class="bi bi-search text-muted ms-3 me-2 fs-5"></i>
                         
                         <input type="text" name="search" class="form-control search-input" 
@@ -278,8 +276,11 @@
                 <div class="card donation-card h-100" th:classappend="${item.status.name() == 'BOOKED'} ? 'is-booked'">
                     
                     <div class="card-img-wrapper">
-                        <!-- Image Logic with Placeholder -->
-                        <img th:src="${item.photoUrl != null} ? '/uploads/' + ${item.photoUrl} : 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'"
+                        <!-- LOGIKA GAMBAR FIX: Menggunakan Placeholder Vector Lokal -->
+                        <img th:src="${item.photoUrl != null && !#strings.isEmpty(item.photoUrl)} 
+                                    ? @{'/uploads/' + ${item.photoUrl}} 
+                                    : @{/assets/images/Placeholder_view_vector.png}"
+                             onerror="this.onerror=null; this.src='/assets/images/Placeholder_view_vector.svg.png';"
                              class="card-img-top" 
                              alt="Foto Makanan">
                         
@@ -318,7 +319,7 @@
                                 <span th:text="${item.expiredTime != null} ? 'Exp: ' + ${#temporals.format(item.expiredTime, 'dd MMM HH:mm')} : '-'"></span>
                             </div>
 
-                            <!-- Button Logic with Dashed Border if Booked -->
+                            <!-- Button Logic -->
                             <a th:href="@{'/donations/' + ${item.id}}" 
                                class="btn w-100 mt-3"
                                th:classappend="${item.status.name() == 'BOOKED'} ? 'btn-disabled-custom' : 'btn-detail'">

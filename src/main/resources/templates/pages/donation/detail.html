@@ -212,12 +212,14 @@
 
     <div class="detail-card">
         <div class="row g-0">
-            <!-- SISI KIRI: GAMBAR FULL -->
+            <!-- SISI KIRI: GAMBAR FULL DENGAN FALLBACK VECTOR LOKAL -->
             <div class="col-lg-6">
                 <div class="image-container">
-                    <img th:src="@{'/uploads/' + ${donation.photoUrl}}" 
+                    <img th:src="${donation.photoUrl != null && !#strings.isEmpty(donation.photoUrl)} 
+                                ? @{'/uploads/' + ${donation.photoUrl}} 
+                                : @{/assets/images/Placeholder_view_vector.svg.png}"
                          class="main-image" 
-                         onerror="this.src='https://via.placeholder.com/600x800?text=No+Preview'"
+                         onerror="this.onerror=null; this.src='/assets/images/Placeholder_view_vector.svg.png';"
                          alt="Foto Makanan">
                     
                     <div class="floating-status">
@@ -304,7 +306,7 @@
                             <h6 class="mb-0 fw-bold" th:text="${donation.createdBy.name}">Nama Donatur</h6>
                         </div>
                         
-                        <!-- Tombol Edit/Hapus (Hanya muncul jika ini milik user yg login, logika sederhana di view) -->
+                        <!-- Tombol Edit/Hapus -->
                         <div class="ms-auto action-group">
                             <a th:href="@{'/donations/edit/' + ${donation.id}}" class="btn btn-sm btn-edit rounded-pill px-3 fw-bold">
                                 <i class="bi bi-pencil"></i> Edit

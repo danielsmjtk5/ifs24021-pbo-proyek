@@ -1,9 +1,5 @@
 package org.delcom.app.services;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,12 +7,16 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 @Service
 public class FileStorageService {
     @Value("${app.upload.dir:./uploads}")
     protected String uploadDir;
 
-    public String storeFile(MultipartFile file, UUID todoId) throws IOException {
+    public String storeFile(MultipartFile file, UUID donationId) throws IOException {
         // Buat directory jika belum ada
         Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
@@ -30,7 +30,7 @@ public class FileStorageService {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
 
-        String filename = "cover_" + todoId.toString() + fileExtension;
+        String filename = "cover_" + donationId.toString() + fileExtension;
 
         // Simpan file
         Path filePath = uploadPath.resolve(filename);

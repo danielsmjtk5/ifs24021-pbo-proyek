@@ -11,33 +11,42 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-        @Bean
-        SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-                http
-                                .exceptionHandling(ex -> ex
-                                                .authenticationEntryPoint((req, res, e) -> {
-                                                        res.sendRedirect("/auth/login");
-                                                }))
-                                .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/auth/**", "/assets/**", "/api/**",
-                                                                "/css/**", "/js/**")
-                                                .permitAll()
-                                                .anyRequest().authenticated())
 
-                                .formLogin(form -> form.disable())
-                                .logout(logout -> logout
-                                                .logoutSuccessUrl("/auth/login")
-                                                .permitAll())
-                                .rememberMe(remember -> remember
-                                                .key("uniqueAndSecret")
-                                                .tokenValiditySeconds(86400) // 24 jam
-                                );
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e) -> {
+                    res.sendRedirect("/auth/login");
+                }))
+            .authorizeHttpRequests(auth -> auth
+                // PERBAIKAN DI SINI:
+                // Menambahkan "/uploads/**" agar gambar bisa diakses tanpa login
+                .requestMatchers(
+                    "/auth/**", 
+                    "/assets/**", 
+                    "/api/**",
+                    "/css/**", 
+                    "/js/**", 
+                    "/uploads/**"
+                ) 
+                .permitAll()
+                .anyRequest().authenticated())
 
-                return http.build();
-        }
+            .formLogin(form -> form.disable())
+            .logout(logout -> logout
+                .logoutSuccessUrl("/auth/login")
+                .permitAll())
+            .rememberMe(remember -> remember
+                .key("uniqueAndSecret")
+                .tokenValiditySeconds(86400) // 24 jam
+            );
 
-        @Bean
-        public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder();
-        }
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 }

@@ -1,17 +1,15 @@
 package org.delcom.app.services;
 
-import org.delcom.app.dto.DonationForm;
-import org.delcom.app.entities.Donation;
-import org.delcom.app.entities.User;
-import org.delcom.app.repositories.DonationRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils; // Opsional jika dibutuhkan
-// Import untuk Exception
-import java.io.IOException; 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+
+import org.delcom.app.dto.DonationForm;
+import org.delcom.app.entities.Donation;
+import org.delcom.app.entities.User;
+import org.delcom.app.repositories.DonationRepository; // Opsional jika dibutuhkan
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class DonationService {
@@ -46,11 +44,16 @@ public class DonationService {
 
     // --- EDIT / UBAH DATA ---
     public void updateDonation(UUID id, DonationForm form, User user) {
-        Donation donation = donationRepo.findById(id).orElseThrow(() -> new RuntimeException("Donation not found"));
+        Donation donation = donationRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Donation not found"));
         
-        // Validasi kepemilikan
+        // --- DEBUGGING (Cek di Console siapa ID-nya) ---
+        System.out.println("ID Pemilik Donasi: " + donation.getCreatedBy().getId());
+        System.out.println("ID User Login    : " + user.getId());
+
+        // --- SOLUSI: Matikan validasi ini sementara (Comment dulu) ---
         if (!donation.getCreatedBy().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized");
+        throw new RuntimeException("Unauthorized");
         }
 
         mapFormToEntity(form, donation);
@@ -58,7 +61,6 @@ public class DonationService {
         // Handle Ganti Foto
         if (form.getPhoto() != null && !form.getPhoto().isEmpty()) {
             try {
-                // Perbaikan Error: Tambahkan parameter ID dan Try-Catch
                 String fileName = fileService.storeFile(form.getPhoto(), donation.getId());
                 donation.setPhotoUrl(fileName);
             } catch (Exception e) {
